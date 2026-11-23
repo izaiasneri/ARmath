@@ -1,0 +1,4 @@
+.venv/
+.armath-deps/
+__pycache__/
+/armath.png
