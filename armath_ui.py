@@ -5,51 +5,88 @@ import sys
 import cv2
 import numpy as np
 from PySide6.QtCore import Qt, QProcess, QSize, QTimer
-from PySide6.QtGui import QAction, QImage, QKeySequence, QPixmap
+from PySide6.QtGui import QAction, QColor, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
-    QMessageBox, QPushButton, QVBoxLayout, QWidget,
+    QMessageBox, QPushButton, QStyle, QStyleOptionButton, QVBoxLayout, QWidget,
 )
 
 from armath import SURFACES, draw_augmentation, marker_dictionary
 
 
-CAMERA_BORDER = 4
-SIDE_PADDING = 36
+CAMERA_BORDER = 2
+SIDE_PADDING = 16
 
 
 DARK_STYLE = """
-QMainWindow, QWidget#content { background: #10151e; }
-QWidget { color: #eef3fb; font-family: "Segoe UI"; font-size: 14px; }
-QMenuBar, QMenu { background: #181f2b; }
-QMenuBar::item:selected, QMenu::item:selected { background: #26384d; }
-QMenu { border: 1px solid #354357; padding: 4px; }
+QMainWindow, QWidget#content, QDialog { background: #242629; }
+QWidget { color: #f4f5f6; font-family: "Segoe UI"; font-size: 14px; }
+QMenuBar, QMenu { background: #2e3135; }
+QMenuBar { border-bottom: 1px solid #41454a; padding: 2px 12px; }
+QMenuBar::item { padding: 7px 12px; }
+QMenuBar::item:selected, QMenu::item:selected { background: #41454a; }
+QMenu { border: 1px solid #45494e; padding: 4px; }
 QMenu::item { padding: 7px 30px 7px 12px; }
-QMenu::item:disabled, QPushButton:disabled { color: #8592a2; }
+QMenu::item:disabled, QPushButton:disabled { color: #a2a7ad; }
 QLabel#brand {
-    color: #67e8f9;
+    color: #38d8eb;
     font-family: "Segoe Script", "Lucida Handwriting", cursive;
-    font-size: 30px;
+    font-size: 26px;
 }
-QLabel#cameraFrame { background: #080d15; border: %dpx solid #22d3ee; padding: 0; }
-QLabel#surfaceName { color: #dce9f7; font-weight: 600; }
+QLabel#cameraFrame { background: #2b2e32; border: %dpx solid #38d8eb; padding: 0; }
+QWidget#cameraHeader, QWidget#equationPanel { background: #2e3135; border-radius: 8px; }
+QLabel#cameraTitle, QLabel#surfaceName { font-weight: 700; font-size: 16px; }
+QLabel#cameraStatus { color: #c4c8cd; }
+QLabel#cameraStatus[state="live"] { color: #38d8eb; font-weight: 600; }
+QWidget#toolbar { border-top: 1px solid #41454a; }
 QPushButton {
-    background: #1c2635; border: 1px solid #354357; border-radius: 6px;
-    padding: 7px 14px;
+    background: #393d42; border: 1px solid #51565c; border-radius: 7px;
+    padding: 8px 14px;
 }
-QPushButton:hover, QCheckBox:hover { background: #26384d; }
-QPushButton#savePhoto, QPushButton#exitApp { color: #10151e; font-weight: 700; }
-QPushButton#savePhoto { background: #25ed72; border-color: #25ed72; }
-QPushButton#savePhoto:hover:enabled { background: #5cff9a; }
-QPushButton#savePhoto:disabled { background: #25bc63; border-color: #25bc63; color: #153621; }
-QPushButton#exitApp { background: #ff404d; border-color: #ff404d; }
-QPushButton#exitApp:hover { background: #ff6973; }
-QPushButton#savePhoto:focus, QPushButton#exitApp:focus { border-color: #22d3ee; }
-QPushButton:focus, QCheckBox:focus { border: 1px solid #22d3ee; }
+QPushButton:hover, QCheckBox:hover { background: #45494e; }
+QPushButton#savePhoto, QPushButton#exitApp { font-weight: 700; }
+QPushButton#savePhoto { background: #218b45; border-color: #218b45; color: white; }
+QPushButton#savePhoto:hover:enabled { background: #1c783a; }
+QPushButton#savePhoto:disabled { background: #35483c; color: #b6c2b9; border-color: #46594c; }
+QPushButton#exitApp { background: transparent; color: #ff696f; border-color: #ff525a; }
+QPushButton#exitApp:hover { background: #493035; }
+QPushButton#savePhoto:focus, QPushButton#exitApp:focus, QPushButton:focus, QCheckBox:focus {
+    border: 1px solid #38d8eb;
+}
 QCheckBox { spacing: 8px; padding: 7px; border: 1px solid transparent; border-radius: 6px; }
-QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #71849b; border-radius: 3px; }
-QCheckBox::indicator:checked { background: #22d3ee; border-color: #22d3ee; }
+QCheckBox::indicator { width: 34px; height: 18px; background: transparent; }
 """ % CAMERA_BORDER
+
+
+class AxesSwitch(QCheckBox):
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        track = self.style().subElementRect(QStyle.SubElement.SE_CheckBoxIndicator, option, self)
+        checked = self.isChecked()
+        with QPainter(self) as painter:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor("#38d8eb" if checked else "#686d73"))
+            painter.drawRoundedRect(track, 9, 9)
+            knob_size = track.height() - 6
+            knob_x = track.right() - knob_size - 2 if checked else track.left() + 3
+            painter.setBrush(QColor("#242629" if checked else "#f4f5f6"))
+            painter.drawEllipse(knob_x, track.top() + 3, knob_size, knob_size)
+
+
+def photo_icon():
+    image = QPixmap(36, 36)
+    image.fill(Qt.GlobalColor.transparent)
+    with QPainter(image) as painter:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(Qt.GlobalColor.white, 3))
+        painter.drawRoundedRect(4, 10, 28, 20, 4, 4)
+        painter.drawEllipse(13, 15, 10, 10)
+        painter.drawLine(12, 7, 24, 7)
+    image.setDevicePixelRatio(2)
+    return QIcon(image)
 
 
 class ARMathWindow(QMainWindow):
@@ -78,7 +115,7 @@ class ARMathWindow(QMainWindow):
         self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         available = self.screen().availableGeometry()
         horizontal_space = available.width() - 2 * (SIDE_PADDING + CAMERA_BORDER) - 20
-        width = min(600, horizontal_space, (available.height() - 245) * 5 // 4)
+        width = min(600, horizontal_space, (available.height() - 235) * 5 // 4)
         self.preview_size = QSize(width, width * 4 // 5)
         self.border_size = QSize(2 * CAMERA_BORDER, 2 * CAMERA_BORDER)
         camera_slot = QWidget()
@@ -87,17 +124,35 @@ class ARMathWindow(QMainWindow):
         camera_layout.setContentsMargins(0, 0, 0, 0)
         camera_layout.addWidget(self.preview, alignment=Qt.AlignmentFlag.AlignCenter)
         self.preview.setFixedSize(camera_slot.size())
+        camera_header = QWidget()
+        camera_header.setObjectName("cameraHeader")
+        camera_title = QLabel("Câmera")
+        camera_title.setObjectName("cameraTitle")
+        self.camera_status = QLabel("Conectando…")
+        self.camera_status.setObjectName("cameraStatus")
+        header_layout = QHBoxLayout(camera_header)
+        header_layout.setContentsMargins(12, 6, 12, 6)
+        header_layout.addWidget(camera_title)
+        header_layout.addStretch()
+        header_layout.addWidget(self.camera_status)
 
-        brand = QLabel("ARMath")
-        brand.setObjectName("brand")
-        brand.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.brand = QLabel("ARMath", self.menuBar())
+        self.brand.setObjectName("brand")
+        self.brand.setContentsMargins(10, 0, 10, 0)
+        self.brand.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.menuBar().setCornerWidget(self.brand, Qt.Corner.TopRightCorner)
         self.surface_name = QLabel("Aponte a câmera para um marcador")
         self.surface_name.setObjectName("surfaceName")
-        self.surface_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.surface_name.setWordWrap(True)
         self.formula = QLabel()
         self.formula.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.formula.setMinimumHeight(80)
+        equation_panel = QWidget()
+        equation_panel.setObjectName("equationPanel")
+        equation_panel.setMinimumHeight(78)
+        equation_layout = QHBoxLayout(equation_panel)
+        equation_layout.setContentsMargins(14, 6, 14, 6)
+        equation_layout.addWidget(self.surface_name, 1)
+        equation_layout.addWidget(self.formula, 2)
         self.formula_images = {}
 
         menu = self.menuBar().addMenu("&Arquivo")
@@ -105,7 +160,7 @@ class ARMathWindow(QMainWindow):
         self.save_action.setShortcut(QKeySequence("Ctrl+S"))
         self.save_action.triggered.connect(self.save_photo)
         self.save_action.setEnabled(False)
-        self.axes_action = QAction("Eixos", self, checkable=True)
+        self.axes_action = QAction("Eixos 3D", self, checkable=True)
         self.axes_action.setShortcut(QKeySequence("Ctrl+E"))
         self.restart_action = QAction("Reiniciar câmera", self)
         self.restart_action.setVisible(False)
@@ -117,12 +172,12 @@ class ARMathWindow(QMainWindow):
             menu.addAction(action)
         self.menuBar().addAction("&Sobre", self.show_about)
 
-        save_button = QPushButton("Salvar foto")
+        save_button = QPushButton(photo_icon(), "Salvar foto")
         save_button.setObjectName("savePhoto")
         save_button.setEnabled(False)
         self.save_action.changed.connect(lambda: save_button.setEnabled(self.save_action.isEnabled()))
         save_button.clicked.connect(self.save_action.trigger)
-        axes_button = QCheckBox("Eixos")
+        axes_button = AxesSwitch("Eixos 3D")
         axes_button.toggled.connect(self.axes_action.setChecked)
         self.axes_action.toggled.connect(axes_button.setChecked)
         restart_button = QPushButton("Reiniciar câmera")
@@ -135,7 +190,11 @@ class ARMathWindow(QMainWindow):
         exit_button.setObjectName("exitApp")
         exit_button.clicked.connect(self.close)
 
-        controls = QHBoxLayout()
+        toolbar = QWidget()
+        toolbar.setObjectName("toolbar")
+        controls = QHBoxLayout(toolbar)
+        controls.setContentsMargins(0, 8, 0, 0)
+        controls.setSpacing(12)
         controls.addWidget(save_button)
         controls.addWidget(axes_button)
         controls.addStretch()
@@ -144,13 +203,12 @@ class ARMathWindow(QMainWindow):
         root = QWidget()
         root.setObjectName("content")
         layout = QVBoxLayout(root)
-        layout.setContentsMargins(SIDE_PADDING, 4, SIDE_PADDING, 12)
-        layout.setSpacing(5)
-        layout.addWidget(brand)
+        layout.setContentsMargins(SIDE_PADDING, 10, SIDE_PADDING, 10)
+        layout.setSpacing(8)
+        layout.addWidget(camera_header)
         layout.addWidget(camera_slot, alignment=Qt.AlignmentFlag.AlignHCenter)
-        layout.addWidget(self.surface_name)
-        layout.addWidget(self.formula)
-        layout.addLayout(controls)
+        layout.addWidget(equation_panel)
+        layout.addWidget(toolbar)
         self.setCentralWidget(root)
 
         QTimer.singleShot(0, self, self.start_camera)
@@ -161,17 +219,28 @@ class ARMathWindow(QMainWindow):
         self.backends = iter(self.camera_backends)
         self.start_camera()
 
+    def set_camera_status(self, text, state):
+        if self.camera_status.property("state") == state:
+            return
+        self.camera_status.setText(text)
+        self.camera_status.setProperty("state", state)
+        style = self.camera_status.style()
+        style.unpolish(self.camera_status)
+        style.polish(self.camera_status)
+
     def start_camera(self):
         if self.closing:
             return
         backend = next(self.backends, None)
         if backend is None:
+            self.set_camera_status("Indisponível", "offline")
             self.preview.setText(
                 f"Sem imagem da câmera {self.camera_index}.\n"
                 "Verifique a conexão e as permissões da câmera."
             )
             self.restart_action.setVisible(True)
             return
+        self.set_camera_status("Conectando…", "connecting")
         self.camera_bytes.clear()
         worker = Path(__file__).with_name("armath_camera.py").resolve()
         self.camera_timeout.start()
@@ -186,6 +255,7 @@ class ARMathWindow(QMainWindow):
         self.update_formula(None)
         self.preview.setFixedSize(self.preview_size + self.border_size)
         self.preview.setText("Tentando outra conexão com a câmera…")
+        self.set_camera_status("Conectando…", "connecting")
         QTimer.singleShot(0, self, self.start_camera)
 
     def camera_error(self, error):
@@ -218,6 +288,7 @@ class ARMathWindow(QMainWindow):
         )
         self.preview.setFixedSize(self.frame.size() + self.border_size)
         self.preview.setPixmap(QPixmap.fromImage(self.frame))
+        self.set_camera_status("● Ao vivo", "live")
         self.save_action.setEnabled(True)
 
     def update_formula(self, marker_id):
@@ -246,9 +317,10 @@ class ARMathWindow(QMainWindow):
                 pixmap = QPixmap()
                 pixmap.loadFromData(buffer.getvalue())
                 pixmap.setDevicePixelRatio(2)
-                if pixmap.deviceIndependentSize().width() > self.preview_size.width():
+                formula_width = self.preview_size.width() * 2 // 3
+                if pixmap.deviceIndependentSize().width() > formula_width:
                     pixmap = pixmap.scaledToWidth(
-                        self.preview_size.width() * 2, Qt.TransformationMode.SmoothTransformation
+                        formula_width * 2, Qt.TransformationMode.SmoothTransformation
                     )
                 self.formula_images[marker_id] = pixmap
             self.formula.setPixmap(self.formula_images[marker_id])
@@ -258,7 +330,7 @@ class ARMathWindow(QMainWindow):
         dialog.setWindowTitle("Sobre o ARMath")
         dialog.setFixedWidth(420)
         dialog.setStyleSheet("""
-            QDialog { background: #10151e; }
+            QDialog { background: #242629; }
             QLabel { color: #eef3fb; }
             QLabel#aboutTitle { color: #67e8f9; font-size: 24px; font-weight: 700; }
             QPushButton {

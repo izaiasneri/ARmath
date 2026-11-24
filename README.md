@@ -1,3 +1,5 @@
+![Logotipo do ARMath](docs/imagens/armath-logo.png)
+
 # ARMath 1.0
 
 ARMath é um aplicativo de realidade aumentada para explorar superfícies matemáticas em 3D. Feito em Python com PySide6, OpenCV, NumPy e Matplotlib, ele identifica marcadores ArUco na câmera e projeta a superfície correspondente sobre o vídeo. Ao inclinar ou girar o marcador, você observa o gráfico de outro ângulo. O nome e a equação aparecem abaixo da prévia.

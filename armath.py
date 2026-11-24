@@ -129,13 +129,24 @@ def draw_surface(frame, corners, marker_id, show_axes):
         for col in range(mesh.shape[1] - 1)
     ]
     overlay = frame.copy()
+    wire_mask = np.zeros((height, width), dtype=np.uint8)
     for _, row, col in sorted(cells, reverse=True):
         quad = pixels[[row, row, row + 1, row + 1], [col, col + 1, col + 1, col]]
         elevation = mesh[row:row + 2, col:col + 2, 2].mean() / HALF
-        green = int(np.clip(140 + elevation * 94, 65, 220))
-        cv2.fillConvexPoly(overlay, quad, (35, green, 255), cv2.LINE_AA)
-        cv2.polylines(overlay, [quad], True, (27, 48, 152), 1, cv2.LINE_AA)
+        teal = int(np.clip(39 + elevation * 20, 22, 66))
+        cv2.fillConvexPoly(overlay, quad, (teal + 14, teal, 10), cv2.LINE_AA)
+        cv2.polylines(overlay, [quad], True, (235, 216, 56), 1, cv2.LINE_AA)
+        # Clear hidden edges before drawing the glow mask for each nearer cell.
+        cv2.fillConvexPoly(wire_mask, quad, 0, cv2.LINE_AA)
+        cv2.polylines(wire_mask, [quad], True, 255, 1, cv2.LINE_AA)
     cv2.addWeighted(overlay, SURFACE_OPACITY, frame, 1 - SURFACE_OPACITY, 0, dst=frame)
+    glow = cv2.GaussianBlur(wire_mask, (7, 7), 1.5)
+    cv2.add(
+        frame,
+        cv2.merge((cv2.convertScaleAbs(glow, alpha=0.34),
+                   cv2.convertScaleAbs(glow, alpha=0.29), np.zeros_like(glow))),
+        dst=frame,
+    )
     if show_axes:
         cv2.drawFrameAxes(frame, camera, None, rotation, translation, HALF * 1.4, 2)
     return True
