@@ -6,10 +6,10 @@ import sys
 import cv2
 import numpy as np
 from PySide6.QtCore import Qt, QProcess, QSize, QTimer
-from PySide6.QtGui import QAction, QColor, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtGui import QAction, QColor, QCursor, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMainWindow,
-    QMessageBox, QPushButton, QSlider, QStyle, QStyleOptionButton, QVBoxLayout, QWidget,
+    QApplication, QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
+    QMessageBox, QPushButton, QRadioButton, QSlider, QStyle, QStyleOptionButton, QVBoxLayout, QWidget,
 )
 
 from armath import SURFACE_SCALE, SURFACES, draw_augmentation, marker_dictionary, surface_rotation
@@ -18,6 +18,8 @@ from armath import SURFACE_SCALE, SURFACES, draw_augmentation, marker_dictionary
 CAMERA_BORDER = 3
 CAMERA_RADIUS = 14
 SIDE_PADDING = 16
+SIDEBAR_WIDTH = 332
+COLUMN_SPACING = 12
 
 
 THEME_STYLE = Template("""
@@ -38,10 +40,16 @@ QLabel#brand {
 QLabel#cameraFrame {
     background: $preview; border: %dpx solid $accent; border-radius: %dpx; padding: 0;
 }
-QWidget#cameraHeader, QWidget#equationPanel, QWidget#transformPanel {
-    background: $panel; border-radius: 8px;
+QWidget#cameraPanel, QWidget#transformPanel, QWidget#planePanel {
+    background: $panel; border: 1px solid $line; border-radius: 10px;
 }
-QLabel#cameraTitle, QLabel#surfaceName { font-weight: 700; font-size: 16px; }
+QWidget#equationPanel { background: $background; border: 1px solid $line; border-radius: 8px; }
+QLabel#cameraTitle, QLabel#panelTitle, QLabel#surfaceName { font-weight: 700; font-size: 16px; }
+QWidget#panelDivider { background: $line; }
+QLabel#sliderReading {
+    background: $background; border: 1px solid $button_border; border-radius: 5px;
+    padding: 3px 4px;
+}
 QLabel#cameraStatus { color: $status; }
 QLabel#cameraStatus[state="live"] { color: $accent_text; font-weight: 600; }
 QWidget#toolbar { border-top: 1px solid $line; }
@@ -62,8 +70,13 @@ QPushButton#savePhoto:focus, QPushButton#exitApp:focus, QPushButton:focus, QChec
 QCheckBox { spacing: 8px; padding: 7px; border: 1px solid transparent; border-radius: 6px; }
 QCheckBox::indicator { width: 34px; height: 18px; background: transparent; }
 QSlider::groove:horizontal { background: $track; height: 4px; border-radius: 2px; }
+QSlider::sub-page:horizontal { background: $accent; border-radius: 2px; }
 QSlider::handle:horizontal { background: $accent; width: 14px; margin: -5px 0; border-radius: 7px; }
 QSlider::handle:horizontal:hover, QSlider::handle:horizontal:focus { background: $accent_hover; }
+QPushButton#resetSlider { padding: 0; font-size: 19px; }
+QRadioButton { spacing: 5px; padding: 3px; }
+QRadioButton::indicator { width: 12px; height: 12px; border: 1px solid $track; border-radius: 7px; }
+QRadioButton::indicator:checked { background: $accent; border-color: $accent; }
 """ % (CAMERA_BORDER, CAMERA_RADIUS))
 ABOUT_STYLE = Template("""
     QLabel#aboutTitle { color: $accent_text; font-size: 24px; font-weight: 700; }
@@ -150,6 +163,37 @@ def photo_icon():
     return QIcon(image)
 
 
+def reset_icon():
+    image = QPixmap(32, 32)
+    image.fill(Qt.GlobalColor.transparent)
+    with QPainter(image) as painter:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(QColor("#8c9890"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen)
+        painter.drawArc(5, 5, 22, 22, 135 * 16, 310 * 16)
+        painter.drawLine(7, 8, 7, 15)
+        painter.drawLine(7, 15, 14, 15)
+    image.setDevicePixelRatio(2)
+    return QIcon(image)
+
+
+def panel_divider(vertical=False):
+    divider = QWidget()
+    divider.setObjectName("panelDivider")
+    if vertical:
+        divider.setFixedWidth(1)
+    else:
+        divider.setFixedHeight(1)
+    return divider
+
+
+def add_panel_title(layout, text):
+    title = QLabel(text)
+    title.setObjectName("panelTitle")
+    layout.addWidget(title)
+    layout.addWidget(panel_divider())
+
+
 class ARMathWindow(QMainWindow):
     def __init__(self, camera_index):
         super().__init__()
@@ -177,9 +221,13 @@ class ARMathWindow(QMainWindow):
         self.preview = QLabel("Procurando câmera…")
         self.preview.setObjectName("cameraFrame")
         self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        available = self.screen().availableGeometry()
-        horizontal_space = available.width() - 2 * (SIDE_PADDING + CAMERA_BORDER) - 20
-        width = min(600, horizontal_space, (available.height() - 372) * 5 // 4)
+        self.startup_screen = QApplication.screenAt(QCursor.pos()) or self.screen()
+        available = self.startup_screen.availableGeometry()
+        horizontal_space = (
+            available.width() - 2 * (SIDE_PADDING + CAMERA_BORDER)
+            - SIDEBAR_WIDTH - COLUMN_SPACING - 38
+        )
+        width = max(230, min(600, horizontal_space, (available.height() - 235) * 5 // 4))
         self.preview_size = QSize(width, width * 4 // 5)
         self.border_size = QSize(2 * CAMERA_BORDER, 2 * CAMERA_BORDER)
         camera_slot = QWidget()
@@ -197,11 +245,10 @@ class ARMathWindow(QMainWindow):
         header_layout = QHBoxLayout(camera_header)
         header_layout.setContentsMargins(12, 6, 12, 6)
         header_layout.addWidget(camera_title)
-        header_layout.addStretch()
         header_layout.addWidget(self.camera_status)
+        header_layout.addStretch()
         light_mode = ToggleSwitch("Modo claro")
         light_mode.toggled.connect(self.set_light_mode)
-        header_layout.addWidget(light_mode)
 
         self.brand = QLabel("ARMath", self.menuBar())
         self.brand.setObjectName("brand")
@@ -219,6 +266,7 @@ class ARMathWindow(QMainWindow):
         equation_layout = QHBoxLayout(equation_panel)
         equation_layout.setContentsMargins(14, 6, 14, 6)
         equation_layout.addWidget(self.surface_name, 1)
+        equation_layout.addWidget(panel_divider(vertical=True))
         equation_layout.addWidget(self.formula, 2)
         self.formula_images = {}
 
@@ -264,40 +312,98 @@ class ARMathWindow(QMainWindow):
         controls.setContentsMargins(0, 8, 0, 0)
         controls.setSpacing(12)
         controls.addWidget(save_button)
+        controls.addWidget(panel_divider(vertical=True))
         controls.addWidget(axes_button)
+        controls.addWidget(light_mode)
         controls.addStretch()
         controls.addWidget(restart_button)
         controls.addWidget(exit_button)
 
         transform_panel = QWidget()
         transform_panel.setObjectName("transformPanel")
-        transform_layout = QGridLayout(transform_panel)
-        transform_layout.setContentsMargins(14, 8, 14, 8)
-        transform_layout.setHorizontalSpacing(22)
-        transform_layout.setVerticalSpacing(5)
+        transform_layout = QVBoxLayout(transform_panel)
+        transform_layout.setContentsMargins(14, 10, 14, 10)
+        transform_layout.setSpacing(10)
+        add_panel_title(transform_layout, "Transformação")
         self.zoom_slider = self.add_slider(
-            transform_layout, 0, 0, "Escala", 100, 300, round(SURFACE_SCALE * 100),
+            transform_layout, "Escala", 100, 300, round(SURFACE_SCALE * 100),
             lambda value: f"{value / 100:.2f}×".replace(".", ","),
         )
         self.rotation_sliders = [
             self.add_slider(
-                transform_layout, index // 2, index % 2, f"Rotação {axis}",
+                transform_layout, f"Rotação {axis}",
                 -180, 180, 0, lambda value: f"{value}°",
             )
-            for index, axis in enumerate("XYZ", start=1)
+            for axis in "XYZ"
         ]
         reset_transform = QPushButton("Redefinir")
         reset_transform.clicked.connect(self.reset_transform)
-        transform_layout.addWidget(reset_transform, 2, 0, 1, 2, Qt.AlignmentFlag.AlignRight)
+        transform_layout.addWidget(reset_transform)
+
+        plane_panel = QWidget()
+        plane_panel.setObjectName("planePanel")
+        plane_layout = QVBoxLayout(plane_panel)
+        plane_layout.setContentsMargins(14, 10, 14, 10)
+        plane_layout.setSpacing(10)
+        add_panel_title(plane_layout, "Plano de corte")
+        self.plane_toggle = ToggleSwitch()
+        self.plane_toggle.setAccessibleName("Mostrar plano")
+        plane_toggle_row = QHBoxLayout()
+        plane_toggle_row.addWidget(QLabel("Mostrar plano"))
+        plane_toggle_row.addStretch()
+        plane_toggle_row.addWidget(self.plane_toggle)
+        plane_layout.addLayout(plane_toggle_row)
+        plane_controls = QWidget()
+        plane_controls_layout = QVBoxLayout(plane_controls)
+        plane_controls_layout.setContentsMargins(0, 0, 0, 0)
+        plane_controls_layout.addWidget(panel_divider())
+        plane_options = QHBoxLayout()
+        self.plane_radios = [QRadioButton(name) for name in ("XY", "XZ", "YZ")]
+        self.plane_radios[0].setChecked(True)
+        for radio in self.plane_radios:
+            plane_options.addWidget(radio, 1)
+            radio.toggled.connect(self.plane_changed)
+        plane_controls_layout.addLayout(plane_options)
+        plane_controls_layout.addWidget(panel_divider())
+        self.plane_slider = QSlider(Qt.Orientation.Horizontal)
+        self.plane_slider.setAccessibleName("Deslocamento do plano")
+        self.plane_slider.setRange(-100, 100)
+        self.add_slider_row(
+            plane_controls_layout, self.plane_slider, "Deslocamento",
+            0, lambda value: f"{value}%",
+        )
+        self.plane_slider.valueChanged.connect(self.render_frame)
+        plane_layout.addWidget(plane_controls)
+        plane_controls.hide()
+        self.plane_toggle.toggled.connect(plane_controls.setVisible)
+        self.plane_toggle.toggled.connect(self.render_frame)
         root = QWidget()
         root.setObjectName("content")
         layout = QVBoxLayout(root)
         layout.setContentsMargins(SIDE_PADDING, 10, SIDE_PADDING, 10)
         layout.setSpacing(8)
-        layout.addWidget(camera_header)
-        layout.addWidget(camera_slot, alignment=Qt.AlignmentFlag.AlignHCenter)
-        layout.addWidget(equation_panel)
-        layout.addWidget(transform_panel)
+        columns = QHBoxLayout()
+        columns.setSpacing(COLUMN_SPACING)
+        camera_panel = QWidget()
+        camera_panel.setObjectName("cameraPanel")
+        camera_column = QVBoxLayout(camera_panel)
+        camera_column.setContentsMargins(9, 4, 9, 9)
+        camera_column.setSpacing(8)
+        camera_column.addWidget(camera_header)
+        camera_column.addWidget(camera_slot, alignment=Qt.AlignmentFlag.AlignHCenter)
+        camera_column.addWidget(equation_panel)
+        columns.addWidget(camera_panel, 1, Qt.AlignmentFlag.AlignTop)
+        sidebar = QWidget()
+        sidebar.setFixedWidth(SIDEBAR_WIDTH)
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(8)
+        sidebar_layout.addStretch()
+        sidebar_layout.addWidget(transform_panel)
+        sidebar_layout.addWidget(plane_panel)
+        sidebar_layout.addStretch()
+        columns.addWidget(sidebar)
+        layout.addLayout(columns)
         layout.addWidget(toolbar)
         self.setCentralWidget(root)
 
@@ -308,26 +414,44 @@ class ARMathWindow(QMainWindow):
         self.setStyleSheet(THEME_STYLE.substitute(self.theme))
         self.show_formula_image(self.active_marker)
 
-    def add_slider(self, layout, row, column, name, minimum, maximum, initial, format_value):
+    def add_slider(self, layout, name, minimum, maximum, initial, format_value):
         slider = QSlider(Qt.Orientation.Horizontal)
         slider.setAccessibleName(name)
         slider.setRange(minimum, maximum)
         slider.setValue(initial)
-        heading = QHBoxLayout()
-        label = QLabel(name)
-        label.setBuddy(slider)
-        reading = QLabel(format_value(initial))
-        heading.addWidget(label)
-        heading.addStretch()
-        heading.addWidget(reading)
-        group = QVBoxLayout()
-        group.setSpacing(2)
-        group.addLayout(heading)
-        group.addWidget(slider)
-        layout.addLayout(group, row, column)
-        slider.valueChanged.connect(lambda value: reading.setText(format_value(value)))
+        self.add_slider_row(layout, slider, name, initial, format_value)
         slider.valueChanged.connect(self.update_transform)
         return slider
+
+    def add_slider_row(self, layout, slider, name, initial, format_value):
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        label = QLabel(name)
+        label.setBuddy(slider)
+        label.setFixedWidth(100)
+        reading = QLabel(format_value(initial))
+        reading.setObjectName("sliderReading")
+        reading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        reading.setFixedWidth(58)
+        row.addWidget(label)
+        row.addWidget(slider, 1)
+        row.addWidget(reading)
+        row.addWidget(self.slider_reset(slider, name, initial, format_value(initial)))
+        layout.addLayout(row)
+        slider.valueChanged.connect(lambda value: reading.setText(format_value(value)))
+
+    def slider_reset(self, slider, name, initial, reading):
+        reset = QPushButton(reset_icon(), "")
+        reset.setObjectName("resetSlider")
+        reset.setFixedSize(30, 28)
+        reset.setAccessibleName(f"Redefinir {name}")
+        reset.setToolTip(f"Restaurar {name} para {reading}")
+        reset.clicked.connect(lambda: slider.setValue(initial))
+        return reset
+
+    def plane_changed(self, checked):
+        if checked:
+            self.render_frame()
 
     def update_transform(self):
         angles = [slider.value() for slider in self.rotation_sliders]
@@ -417,9 +541,13 @@ class ARMathWindow(QMainWindow):
         if self.camera_frame is None:
             return
         frame = self.camera_frame.copy()
+        plane = None
+        if self.plane_toggle.isChecked():
+            axis = next(axis for axis, radio in zip((2, 1, 0), self.plane_radios) if radio.isChecked())
+            plane = (axis, self.plane_slider.value() / 100)
         self.update_formula(draw_augmentation(
             frame, self.detector, self.axes_action.isChecked(),
-            self.zoom_slider.value() / 100, self.rotation,
+            self.zoom_slider.value() / 100, self.rotation, plane,
         ))
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         height, width = rgb.shape[:2]
@@ -556,4 +684,7 @@ def run(camera_index):
     app = QApplication([])
     window = ARMathWindow(camera_index)
     window.show()
+    geometry = window.frameGeometry()
+    geometry.moveCenter(window.startup_screen.geometry().center())
+    window.move(geometry.topLeft())
     return app.exec()

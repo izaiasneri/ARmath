@@ -113,7 +113,73 @@ def surface_rotation(angles):
     return rotation_z @ rotation_y @ rotation_x
 
 
-def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation):
+def plane_section(mesh, axis, offset):
+    a, b = mesh[:-1, :-1], mesh[:-1, 1:]
+    c, d = mesh[1:, :-1], mesh[1:, 1:]
+    triangles = np.concatenate((
+        np.stack((a, b, d), axis=-2).reshape(-1, 3, 3),
+        np.stack((a, d, c), axis=-2).reshape(-1, 3, 3),
+    ))
+    distance = triangles[:, :, axis] - offset
+    distance[np.abs(distance) < 1e-9] = 0
+    ends = np.roll(triangles, -1, axis=1)
+    end_distance = np.roll(distance, -1, axis=1)
+    crossing = (distance > 0) != (end_distance > 0)
+    cuts = crossing.sum(axis=1) == 2
+    selected = crossing & cuts[:, None]
+    fraction = distance[selected] / (distance[selected] - end_distance[selected])
+    hits = triangles[selected] + (ends[selected] - triangles[selected]) * fraction[:, None]
+    segments = hits.reshape(-1, 2, 3)
+
+    # Include mesh edges on the plane, but skip the interiors of coplanar triangles.
+    on_plane = (distance == 0) & (end_distance == 0) & (distance != 0).any(axis=1)[:, None]
+    edges = np.stack((triangles[on_plane], ends[on_plane]), axis=1)
+    segments = np.concatenate((segments, edges))
+    return segments[np.linalg.norm(segments[:, 1] - segments[:, 0], axis=1) > 1e-9]
+
+
+def plane_position(mesh, axis, position):
+    levels = mesh[:, :, axis]
+    limit = levels.min() if position < 0 else levels.max()
+    return abs(position) * limit
+
+
+def cutting_plane_mesh(mesh, axis, offset):
+    tangents = [coordinate for coordinate in range(3) if coordinate != axis]
+    extent = max(1.2 * HALF, np.abs(mesh[:, :, tangents]).max() * 1.12)
+    ticks = np.linspace(-extent, extent, 11)
+    grid = np.full((ticks.size, ticks.size, 3), offset, dtype=float)
+    grid[:, :, tangents[0]], grid[:, :, tangents[1]] = np.meshgrid(ticks, ticks)
+    return grid
+
+
+def mesh_cells(mesh, rotation, translation, camera, marker_rotation, is_plane=False):
+    points = mesh.reshape(-1, 3)
+    depth = ((points @ marker_rotation.T)[:, 2] + translation[2, 0]).reshape(mesh.shape[:2])
+    if np.any(depth <= 0) and not is_plane:
+        return None
+    projected = cv2.projectPoints(points, rotation, translation, camera, None)[0]
+    pixels = np.clip(projected, -32768, 32767).round().astype(np.int32).reshape(*mesh.shape[:2], 2)
+    return [
+        (depth[row:row + 2, col:col + 2].mean(), is_plane,
+         pixels[[row, row, row + 1, row + 1], [col, col + 1, col + 1, col]],
+         mesh[row:row + 2, col:col + 2, 2].mean() / HALF)
+        for row in range(mesh.shape[0] - 1)
+        for col in range(mesh.shape[1] - 1)
+        if np.all(depth[row:row + 2, col:col + 2] > 1e-6)
+    ]
+
+
+def draw_section(frame, segments, camera, rotation, translation, marker_rotation):
+    depth = (segments @ marker_rotation.T)[:, :, 2] + translation[2, 0]
+    visible = segments[(depth > 1e-6).all(axis=1)]
+    if visible.size:
+        image_points = cv2.projectPoints(visible.reshape(-1, 3), rotation, translation, camera, None)[0]
+        pixels = np.clip(image_points, -32768, 32767).round().astype(np.int32)
+        cv2.polylines(frame, pixels.reshape(-1, 2, 2), False, (255, 255, 255), 3, cv2.LINE_AA)
+
+
+def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation, plane=None):
     height, width = frame.shape[:2]
     focal = max(width, height)
     camera = np.array([[focal, 0, width / 2], [0, focal, height / 2], [0, 0, 1]], dtype=float)
@@ -123,31 +189,31 @@ def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation):
     if not found or not np.isfinite(rotation).all() or not np.isfinite(translation).all():
         return False
 
-    mesh = (MESHES[marker_id] @ local_rotation.T) * scale
-    points = mesh.reshape(-1, 3)
+    scaled_mesh = MESHES[marker_id] * scale
+    mesh = scaled_mesh @ local_rotation.T
     marker_rotation = cv2.Rodrigues(rotation)[0]
-    depths = (points @ marker_rotation.T)[:, 2] + translation[2, 0]
-    if np.any(depths <= 0):
+    cells = mesh_cells(mesh, rotation, translation, camera, marker_rotation)
+    if cells is None:
         return False
-    projected = cv2.projectPoints(points, rotation, translation, camera, None)[0]
-    pixels = np.clip(projected, -32768, 32767).round().astype(np.int32).reshape(*mesh.shape[:2], 2)
-    depth = depths.reshape(mesh.shape[:2])
-    cells = [
-        (depth[row:row + 2, col:col + 2].mean(), row, col)
-        for row in range(mesh.shape[0] - 1)
-        for col in range(mesh.shape[1] - 1)
-    ]
+    if plane is not None:
+        axis, position = plane
+        offset = plane_position(scaled_mesh, axis, position)
+        grid = cutting_plane_mesh(scaled_mesh, axis, offset) @ local_rotation.T
+        cells.extend(mesh_cells(grid, rotation, translation, camera, marker_rotation, is_plane=True))
     overlay = frame.copy()
     wire_mask = np.zeros((height, width), dtype=np.uint8)
-    for _, row, col in sorted(cells, reverse=True):
-        quad = pixels[[row, row, row + 1, row + 1], [col, col + 1, col + 1, col]]
-        elevation = mesh[row:row + 2, col:col + 2, 2].mean() / HALF
-        green = int(np.clip(39 + elevation * 20, 22, 66))
-        cv2.fillConvexPoly(overlay, quad, (green // 2, green, 10), cv2.LINE_AA)
-        cv2.polylines(overlay, [quad], True, (95, 255, 52), 1, cv2.LINE_AA)
+    for _, is_plane, quad, elevation in sorted(cells, key=lambda cell: cell[0], reverse=True):
+        if is_plane:
+            fill, wire = (28, 33, 196), (28, 235, 255)
+        else:
+            green = int(np.clip(39 + elevation * 20, 22, 66))
+            fill, wire = (green // 2, green, 10), (95, 255, 52)
+        cv2.fillConvexPoly(overlay, quad, fill, cv2.LINE_AA)
+        cv2.polylines(overlay, [quad], True, wire, 1, cv2.LINE_AA)
         # Clear hidden edges before drawing the glow mask for each nearer cell.
         cv2.fillConvexPoly(wire_mask, quad, 0, cv2.LINE_AA)
-        cv2.polylines(wire_mask, [quad], True, 255, 1, cv2.LINE_AA)
+        if not is_plane:
+            cv2.polylines(wire_mask, [quad], True, 255, 1, cv2.LINE_AA)
     cv2.addWeighted(overlay, SURFACE_OPACITY, frame, 1 - SURFACE_OPACITY, 0, dst=frame)
     glow = cv2.GaussianBlur(wire_mask, (7, 7), 1.5)
     cv2.add(
@@ -159,10 +225,13 @@ def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation):
     if show_axes:
         axes_rotation = cv2.Rodrigues(marker_rotation @ local_rotation)[0]
         cv2.drawFrameAxes(frame, camera, None, axes_rotation, translation, HALF * 1.4, 2)
+    if plane is not None:
+        section = plane_section(scaled_mesh, axis, offset) @ local_rotation.T
+        draw_section(frame, section, camera, rotation, translation, marker_rotation)
     return True
 
 
-def draw_augmentation(frame, detector, show_axes, scale, local_rotation):
+def draw_augmentation(frame, detector, show_axes, scale, local_rotation, plane=None):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     corners, ids, _ = detector.detectMarkers(gray)
     if ids is None:
@@ -174,7 +243,7 @@ def draw_augmentation(frame, detector, show_axes, scale, local_rotation):
     ]
     # The formula panel follows the most prominent supported marker.
     for _, marker_id, quad in sorted(matches, key=lambda match: match[0], reverse=True):
-        if draw_surface(frame, quad, marker_id, show_axes, scale, local_rotation):
+        if draw_surface(frame, quad, marker_id, show_axes, scale, local_rotation, plane):
             return marker_id
     return None
 
