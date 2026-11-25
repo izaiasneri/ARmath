@@ -1,0 +1,5 @@
+ARMath 2.0 - versão portátil para Windows x64
+
+Abra ARMath.exe. Mantenha a pasta _internal ao lado do executável.
+Imprima os PNGs da pasta marcadores ou exiba-os em outro dispositivo.
+Para compartilhar o aplicativo, copie a pasta APP_Executavel inteira.

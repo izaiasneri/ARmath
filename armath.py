@@ -8,7 +8,7 @@ import numpy as np
 
 
 MARKER_SIZE = 0.08
-SURFACE_SCALE = 2.30
+SURFACE_SCALE = 1.30
 SURFACE_OPACITY = 0.94
 HALF = MARKER_SIZE / 2
 MARKER_CORNERS = np.array(
@@ -66,9 +66,9 @@ def double_cone(u, z):
 
 
 SURFACES = {
-    0: ("Paraboloide elíptico", r"z=x^2+y^2", partial(surface_mesh, lambda x, y: x**2 + y**2)),
-    1: ("Paraboloide hiperbólico (sela)", r"z=x^2-y^2", partial(surface_mesh, lambda x, y: x**2 - y**2)),
-    2: ("Ondas senoidais", r"z=\sin(x)\cos(y)", partial(surface_mesh, lambda x, y: np.sin(x) * np.cos(y))),
+    0: ("Paraboloide elíptico", r"z=2x^2+2y^2", partial(surface_mesh, lambda x, y: 2*x**2 + 2*y**2)),
+    1: ("Paraboloide hiperbólico (sela)", r"z=2x^2-2y^2", partial(surface_mesh, lambda x, y: 2*x**2 - 2*y**2)),
+    2: ("Ondas senoidais", r"z=\sin(2x)\cos(2y)", partial(surface_mesh, lambda x, y: np.sin(2*x) * np.cos(2*y))),
     3: (
         "Elipsoide",
         r"\frac{x^2}{0{,}9^2}+\frac{y^2}{0{,}7^2}+\frac{z^2}{0{,}5^2}=1",
@@ -170,6 +170,11 @@ def draw_augmentation(frame, detector, show_axes):
 
 
 def main():
+    if len(sys.argv) == 4 and sys.argv[1] == "--camera-worker":
+        from armath_camera import stream
+
+        return stream(int(sys.argv[2]), int(sys.argv[3]))
+
     parser = argparse.ArgumentParser(description="ARMath — realidade aumentada para matemática")
     parser.add_argument("--gerar-marcadores", type=Path, metavar="PASTA")
     parser.add_argument("--camera", type=int, default=0, metavar="ÍNDICE")

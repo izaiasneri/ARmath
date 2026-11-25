@@ -1,6 +1,7 @@
 import argparse
 import sys
 from functools import partial
+from itertools import product
 from pathlib import Path
 
 import cv2
@@ -147,7 +148,7 @@ def plane_position(mesh, axis, position):
 def cutting_plane_mesh(mesh, axis, offset):
     tangents = [coordinate for coordinate in range(3) if coordinate != axis]
     extent = max(1.2 * HALF, np.abs(mesh[:, :, tangents]).max() * 1.12)
-    ticks = np.linspace(-extent, extent, 11)
+    ticks = np.linspace(-extent, extent, 21)
     grid = np.full((ticks.size, ticks.size, 3), offset, dtype=float)
     grid[:, :, tangents[0]], grid[:, :, tangents[1]] = np.meshgrid(ticks, ticks)
     return grid
@@ -170,16 +171,16 @@ def mesh_cells(mesh, rotation, translation, camera, marker_rotation, is_plane=Fa
     ]
 
 
-def draw_section(frame, segments, camera, rotation, translation, marker_rotation):
+def draw_white_segments(frame, segments, camera, rotation, translation, marker_rotation, thickness):
     depth = (segments @ marker_rotation.T)[:, :, 2] + translation[2, 0]
     visible = segments[(depth > 1e-6).all(axis=1)]
     if visible.size:
         image_points = cv2.projectPoints(visible.reshape(-1, 3), rotation, translation, camera, None)[0]
         pixels = np.clip(image_points, -32768, 32767).round().astype(np.int32)
-        cv2.polylines(frame, pixels.reshape(-1, 2, 2), False, (255, 255, 255), 3, cv2.LINE_AA)
+        cv2.polylines(frame, pixels.reshape(-1, 2, 2), False, (255, 255, 255), thickness, cv2.LINE_AA)
 
 
-def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation, plane=None):
+def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation, plane=None, show_box=False):
     height, width = frame.shape[:2]
     focal = max(width, height)
     camera = np.array([[focal, 0, width / 2], [0, focal, height / 2], [0, 0, 1]], dtype=float)
@@ -227,11 +228,16 @@ def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation, pl
         cv2.drawFrameAxes(frame, camera, None, axes_rotation, translation, HALF * 1.4, 2)
     if plane is not None:
         section = plane_section(scaled_mesh, axis, offset) @ local_rotation.T
-        draw_section(frame, section, camera, rotation, translation, marker_rotation)
+        draw_white_segments(frame, section, camera, rotation, translation, marker_rotation, 3)
+    if show_box:
+        bounds = np.array((scaled_mesh.min(axis=(0, 1)), scaled_mesh.max(axis=(0, 1))))
+        vertices = np.array(list(product(*bounds.T))) @ local_rotation.T
+        edges = [(index, index | bit) for index in range(8) for bit in (1, 2, 4) if not index & bit]
+        draw_white_segments(frame, vertices[edges, :], camera, rotation, translation, marker_rotation, 1)
     return True
 
 
-def draw_augmentation(frame, detector, show_axes, scale, local_rotation, plane=None):
+def draw_augmentation(frame, detector, show_axes, scale, local_rotation, plane=None, show_box=False):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     corners, ids, _ = detector.detectMarkers(gray)
     if ids is None:
@@ -243,7 +249,7 @@ def draw_augmentation(frame, detector, show_axes, scale, local_rotation, plane=N
     ]
     # The formula panel follows the most prominent supported marker.
     for _, marker_id, quad in sorted(matches, key=lambda match: match[0], reverse=True):
-        if draw_surface(frame, quad, marker_id, show_axes, scale, local_rotation, plane):
+        if draw_surface(frame, quad, marker_id, show_axes, scale, local_rotation, plane, show_box):
             return marker_id
     return None
 

@@ -1,4 +1,6 @@
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+import logging
 from pathlib import Path
 from string import Template
 import sys
@@ -163,12 +165,12 @@ def photo_icon():
     return QIcon(image)
 
 
-def reset_icon():
+def reset_icon(color):
     image = QPixmap(32, 32)
     image.fill(Qt.GlobalColor.transparent)
     with QPainter(image) as painter:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#8c9890"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+        pen = QPen(QColor(color), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
         painter.setPen(pen)
         painter.drawArc(5, 5, 22, 22, 135 * 16, 310 * 16)
         painter.drawLine(7, 8, 7, 15)
@@ -192,6 +194,24 @@ def add_panel_title(layout, text):
     title.setObjectName("panelTitle")
     layout.addWidget(title)
     layout.addWidget(panel_divider())
+
+
+def render_formula_png(expression, color):
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    figure = Figure()
+    FigureCanvasAgg(figure)
+    figure.text(
+        0.5, 0.5, f"${expression}$", color=color, fontsize=22,
+        math_fontfamily="stix", ha="center", va="center",
+    )
+    buffer = BytesIO()
+    figure.savefig(
+        buffer, dpi=144, format="png", transparent=True,
+        bbox_inches="tight", pad_inches=0.12,
+    )
+    return buffer.getvalue()
 
 
 class ARMathWindow(QMainWindow):
@@ -269,6 +289,12 @@ class ARMathWindow(QMainWindow):
         equation_layout.addWidget(panel_divider(vertical=True))
         equation_layout.addWidget(self.formula, 2)
         self.formula_images = {}
+        self.formula_executor = ThreadPoolExecutor(max_workers=1)
+        self.formula_job = None
+        self.formula_timer = QTimer(self, interval=30)
+        self.formula_timer.timeout.connect(self.collect_formula)
+        self.marker_loss_timer = QTimer(self, interval=180, singleShot=True)
+        self.marker_loss_timer.timeout.connect(lambda: self.update_formula(None))
 
         menu = self.menuBar().addMenu("&Arquivo")
         self.save_action = QAction("Salvar foto", self)
@@ -296,6 +322,9 @@ class ARMathWindow(QMainWindow):
         axes_button = ToggleSwitch("Eixos 3D")
         axes_button.toggled.connect(self.axes_action.setChecked)
         self.axes_action.toggled.connect(axes_button.setChecked)
+        self.box_toggle = ToggleSwitch("Caixa")
+        self.box_toggle.setToolTip("Mostrar a caixa que delimita a superfície")
+        self.box_toggle.toggled.connect(self.render_frame)
         restart_button = QPushButton("Reiniciar câmera")
         restart_button.hide()
         self.restart_action.visibleChanged.connect(
@@ -314,6 +343,7 @@ class ARMathWindow(QMainWindow):
         controls.addWidget(save_button)
         controls.addWidget(panel_divider(vertical=True))
         controls.addWidget(axes_button)
+        controls.addWidget(self.box_toggle)
         controls.addWidget(light_mode)
         controls.addStretch()
         controls.addWidget(restart_button)
@@ -412,6 +442,9 @@ class ARMathWindow(QMainWindow):
     def set_light_mode(self, enabled):
         self.theme = LIGHT_THEME if enabled else DARK_THEME
         self.setStyleSheet(THEME_STYLE.substitute(self.theme))
+        icon = reset_icon(self.theme["accent"])
+        for button in self.findChildren(QPushButton, "resetSlider"):
+            button.setIcon(icon)
         self.show_formula_image(self.active_marker)
 
     def add_slider(self, layout, name, minimum, maximum, initial, format_value):
@@ -441,7 +474,7 @@ class ARMathWindow(QMainWindow):
         slider.valueChanged.connect(lambda value: reading.setText(format_value(value)))
 
     def slider_reset(self, slider, name, initial, reading):
-        reset = QPushButton(reset_icon(), "")
+        reset = QPushButton(reset_icon(self.theme["accent"]), "")
         reset.setObjectName("resetSlider")
         reset.setFixedSize(30, 28)
         reset.setAccessibleName(f"Redefinir {name}")
@@ -495,8 +528,8 @@ class ARMathWindow(QMainWindow):
         worker_args = ["--camera-worker", str(self.camera_index), str(backend)]
         packaged = getattr(sys, "frozen", False)
         if not packaged:
-            worker_args.insert(0, str(Path(__file__).with_name("armath.py").resolve()))
-        self.camera_timeout.start(8000 if packaged else 4000)
+            worker_args = [str(Path(__file__).with_name("armath_camera.py").resolve()), *worker_args[1:]]
+        self.camera_timeout.start(8000)
         self.camera.start(sys.executable, worker_args)
 
     def camera_finished(self):
@@ -506,6 +539,7 @@ class ARMathWindow(QMainWindow):
         self.frame = None
         self.camera_frame = None
         self.save_action.setEnabled(False)
+        self.marker_loss_timer.stop()
         self.update_formula(None)
         self.preview.setFixedSize(self.preview_size + self.border_size)
         self.preview.setText("Tentando outra conexão com a câmera…")
@@ -545,10 +579,15 @@ class ARMathWindow(QMainWindow):
         if self.plane_toggle.isChecked():
             axis = next(axis for axis, radio in zip((2, 1, 0), self.plane_radios) if radio.isChecked())
             plane = (axis, self.plane_slider.value() / 100)
-        self.update_formula(draw_augmentation(
+        marker_id = draw_augmentation(
             frame, self.detector, self.axes_action.isChecked(),
-            self.zoom_slider.value() / 100, self.rotation, plane,
-        ))
+            self.zoom_slider.value() / 100, self.rotation, plane, show_box=self.box_toggle.isChecked(),
+        )
+        if marker_id is not None:
+            self.marker_loss_timer.stop()
+            self.update_formula(marker_id)
+        elif self.active_marker is not None and not self.marker_loss_timer.isActive():
+            self.marker_loss_timer.start()
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         height, width = rgb.shape[:2]
         image = QImage(rgb.data, width, height, rgb.strides[0], QImage.Format.Format_RGB888)
@@ -556,7 +595,9 @@ class ARMathWindow(QMainWindow):
             self.preview_size, Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
-        self.preview.setFixedSize(self.frame.size() + self.border_size)
+        preview_size = self.frame.size() + self.border_size
+        if self.preview.size() != preview_size:
+            self.preview.setFixedSize(preview_size)
         rounded_frame = QPixmap(self.frame.size())
         rounded_frame.fill(Qt.GlobalColor.transparent)
         radius = CAMERA_RADIUS - CAMERA_BORDER
@@ -584,22 +625,25 @@ class ARMathWindow(QMainWindow):
         if marker_id is None:
             return
         key = (marker_id, self.theme["text"])
-        expression = SURFACES[marker_id][1]
-        if key not in self.formula_images:
-            from matplotlib.figure import Figure
+        if key in self.formula_images:
+            self.formula.setPixmap(self.formula_images[key])
+            return
+        self.formula.clear()
+        if self.formula_job is None:
+            future = self.formula_executor.submit(render_formula_png, SURFACES[marker_id][1], key[1])
+            self.formula_job = (key, future)
+            self.formula_timer.start()
 
-            figure = Figure()
-            figure.text(
-                0.5, 0.5, f"${expression}$", color=self.theme["text"], fontsize=22,
-                math_fontfamily="stix", ha="center", va="center",
-            )
-            buffer = BytesIO()
-            figure.savefig(
-                buffer, dpi=144, format="png", transparent=True,
-                bbox_inches="tight", pad_inches=0.12,
-            )
+    def collect_formula(self):
+        key, future = self.formula_job
+        if not future.done():
+            return
+        self.formula_timer.stop()
+        self.formula_job = None
+        try:
             pixmap = QPixmap()
-            pixmap.loadFromData(buffer.getvalue())
+            if not pixmap.loadFromData(future.result()):
+                raise ValueError("Invalid formula image")
             pixmap.setDevicePixelRatio(2)
             formula_width = self.preview_size.width() * 2 // 3
             if pixmap.deviceIndependentSize().width() > formula_width:
@@ -607,7 +651,12 @@ class ARMathWindow(QMainWindow):
                     formula_width * 2, Qt.TransformationMode.SmoothTransformation
                 )
             self.formula_images[key] = pixmap
-        self.formula.setPixmap(self.formula_images[key])
+        except Exception:
+            logging.exception("Could not render formula")
+            if key == (self.active_marker, self.theme["text"]):
+                self.formula.setText(SURFACES[key[0]][1])
+                return
+        self.show_formula_image(self.active_marker)
 
     def show_about(self):
         dialog = QDialog(self)
@@ -673,6 +722,9 @@ class ARMathWindow(QMainWindow):
 
     def closeEvent(self, event):
         self.closing = True
+        self.marker_loss_timer.stop()
+        self.formula_timer.stop()
+        self.formula_executor.shutdown(wait=False, cancel_futures=True)
         self.camera_timeout.stop()
         if self.camera.state() != QProcess.ProcessState.NotRunning:
             self.camera.kill()

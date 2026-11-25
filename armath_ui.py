@@ -5,7 +5,7 @@ import sys
 import cv2
 import numpy as np
 from PySide6.QtCore import Qt, QProcess, QSize, QTimer
-from PySide6.QtGui import QAction, QColor, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap
+from PySide6.QtGui import QAction, QColor, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
     QMessageBox, QPushButton, QStyle, QStyleOptionButton, QVBoxLayout, QWidget,
@@ -14,7 +14,8 @@ from PySide6.QtWidgets import (
 from armath import SURFACES, draw_augmentation, marker_dictionary
 
 
-CAMERA_BORDER = 2
+CAMERA_BORDER = 3
+CAMERA_RADIUS = 14
 SIDE_PADDING = 16
 
 
@@ -33,7 +34,9 @@ QLabel#brand {
     font-family: "Segoe Script", "Lucida Handwriting", cursive;
     font-size: 26px;
 }
-QLabel#cameraFrame { background: #2b2e32; border: %dpx solid #38d8eb; padding: 0; }
+QLabel#cameraFrame {
+    background: #2b2e32; border: %dpx solid #38d8eb; border-radius: %dpx; padding: 0;
+}
 QWidget#cameraHeader, QWidget#equationPanel { background: #2e3135; border-radius: 8px; }
 QLabel#cameraTitle, QLabel#surfaceName { font-weight: 700; font-size: 16px; }
 QLabel#cameraStatus { color: #c4c8cd; }
@@ -55,7 +58,7 @@ QPushButton#savePhoto:focus, QPushButton#exitApp:focus, QPushButton:focus, QChec
 }
 QCheckBox { spacing: 8px; padding: 7px; border: 1px solid transparent; border-radius: 6px; }
 QCheckBox::indicator { width: 34px; height: 18px; background: transparent; }
-""" % CAMERA_BORDER
+""" % (CAMERA_BORDER, CAMERA_RADIUS)
 
 
 class AxesSwitch(QCheckBox):
@@ -105,7 +108,7 @@ class ARMathWindow(QMainWindow):
         self.camera.readyReadStandardOutput.connect(self.read_camera)
         self.camera.finished.connect(self.camera_finished)
         self.camera.errorOccurred.connect(self.camera_error)
-        self.camera_timeout = QTimer(self, singleShot=True, interval=4000)
+        self.camera_timeout = QTimer(self, singleShot=True)
         self.camera_timeout.timeout.connect(self.camera.kill)
         self.camera_bytes = bytearray()
         self.closing = False
@@ -242,9 +245,12 @@ class ARMathWindow(QMainWindow):
             return
         self.set_camera_status("Conectando…", "connecting")
         self.camera_bytes.clear()
-        worker = Path(__file__).with_name("armath_camera.py").resolve()
-        self.camera_timeout.start()
-        self.camera.start(sys.executable, [str(worker), str(self.camera_index), str(backend)])
+        worker_args = ["--camera-worker", str(self.camera_index), str(backend)]
+        packaged = getattr(sys, "frozen", False)
+        if not packaged:
+            worker_args.insert(0, str(Path(__file__).with_name("armath.py").resolve()))
+        self.camera_timeout.start(8000 if packaged else 4000)
+        self.camera.start(sys.executable, worker_args)
 
     def camera_finished(self):
         self.camera_timeout.stop()
@@ -274,7 +280,7 @@ class ARMathWindow(QMainWindow):
         if jpeg and not self.closing:
             frame = cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
             if frame is not None:
-                self.camera_timeout.start()
+                self.camera_timeout.start(4000)
                 self.update_frame(frame)
 
     def update_frame(self, frame):
@@ -287,7 +293,16 @@ class ARMathWindow(QMainWindow):
             Qt.TransformationMode.SmoothTransformation,
         )
         self.preview.setFixedSize(self.frame.size() + self.border_size)
-        self.preview.setPixmap(QPixmap.fromImage(self.frame))
+        rounded_frame = QPixmap(self.frame.size())
+        rounded_frame.fill(Qt.GlobalColor.transparent)
+        radius = CAMERA_RADIUS - CAMERA_BORDER
+        clip = QPainterPath()
+        clip.addRoundedRect(0, 0, self.frame.width(), self.frame.height(), radius, radius)
+        with QPainter(rounded_frame) as painter:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setClipPath(clip)
+            painter.drawImage(0, 0, self.frame)
+        self.preview.setPixmap(rounded_frame)
         self.set_camera_status("● Ao vivo", "live")
         self.save_action.setEnabled(True)
 
@@ -341,6 +356,16 @@ class ARMathWindow(QMainWindow):
             QPushButton:focus { border-color: #f0fbff; }
         """)
 
+        logo_path = Path(__file__).with_name("docs") / "imagens" / "armath-logo.png"
+        logo_image = QPixmap(str(logo_path))
+        logo = QLabel()
+        logo.setAccessibleName("Logotipo do ARMath")
+        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo.setPixmap(logo_image.scaled(
+            320, 110, Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        ))
+
         title = QLabel("ARMath 1.0")
         title.setObjectName("aboutTitle")
         description = QLabel(
@@ -361,6 +386,8 @@ class ARMathWindow(QMainWindow):
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(14)
+        if not logo_image.isNull():
+            layout.addWidget(logo)
         layout.addWidget(title)
         layout.addWidget(description)
         layout.addWidget(credits)
