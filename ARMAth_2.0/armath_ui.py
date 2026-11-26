@@ -7,11 +7,14 @@ import sys
 
 import cv2
 import numpy as np
-from PySide6.QtCore import Qt, QProcess, QSize, QTimer
-from PySide6.QtGui import QAction, QColor, QCursor, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtCore import Qt, QProcess, QSize, QTimer, QUrl
+from PySide6.QtGui import (
+    QAction, QColor, QCursor, QDesktopServices, QIcon, QImage, QKeySequence,
+    QPainter, QPainterPath, QPen, QPixmap,
+)
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
-    QMessageBox, QPushButton, QRadioButton, QSlider, QStyle, QStyleOptionButton, QVBoxLayout, QWidget,
+    QMenuBar, QMessageBox, QPushButton, QRadioButton, QSlider, QStyle, QStyleOptionButton, QVBoxLayout, QWidget,
 )
 
 from armath import SURFACE_SCALE, SURFACES, draw_augmentation, marker_dictionary, surface_rotation
@@ -29,7 +32,7 @@ QMainWindow, QWidget#content, QDialog { background: $background; }
 QWidget { color: $text; font-family: "Segoe UI"; font-size: 14px; }
 QMenuBar, QMenu { background: $panel; }
 QMenuBar { border-bottom: 1px solid $line; padding: 2px 12px; }
-QMenuBar::item { padding: 7px 12px; }
+QMenuBar::item { padding: 7px 12px 7px 33px; }
 QMenuBar::item:selected, QMenu::item:selected { background: $line; }
 QMenu { border: 1px solid $hover; padding: 4px; }
 QMenu::item { padding: 7px 30px 7px 12px; }
@@ -42,7 +45,7 @@ QLabel#brand {
 QLabel#cameraFrame {
     background: $preview; border: %dpx solid $accent; border-radius: %dpx; padding: 0;
 }
-QWidget#cameraPanel, QWidget#transformPanel, QWidget#planePanel {
+QWidget#cameraPanel, QWidget#visualizationPanel, QWidget#transformPanel, QWidget#planePanel {
     background: $panel; border: 1px solid $line; border-radius: 10px;
 }
 QWidget#equationPanel { background: $background; border: 1px solid $line; border-radius: 8px; }
@@ -152,12 +155,12 @@ class ToggleSwitch(QCheckBox):
             painter.drawEllipse(knob_x, track.top() + 3, knob_size, knob_size)
 
 
-def photo_icon():
+def photo_icon(color="#ffffff"):
     image = QPixmap(36, 36)
     image.fill(Qt.GlobalColor.transparent)
     with QPainter(image) as painter:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(QPen(Qt.GlobalColor.white, 3))
+        painter.setPen(QPen(QColor(color), 3))
         painter.drawRoundedRect(4, 10, 28, 20, 4, 4)
         painter.drawEllipse(13, 15, 10, 10)
         painter.drawLine(12, 7, 24, 7)
@@ -177,6 +180,53 @@ def reset_icon(color):
         painter.drawLine(7, 15, 14, 15)
     image.setDevicePixelRatio(2)
     return QIcon(image)
+
+
+def menu_icon(kind, color):
+    image = QPixmap(32, 32)
+    image.fill(Qt.GlobalColor.transparent)
+    paths = {
+        "file": (((8, 4), (18, 4), (24, 10), (24, 28), (8, 28), (8, 4)),
+                 ((18, 4), (18, 10), (24, 10)), ((12, 16), (20, 16)), ((12, 21), (20, 21))),
+        "folder": (((4, 24), (4, 9), (12, 9), (15, 12), (25, 12), (25, 15)),
+                   ((4, 24), (8, 15), (29, 15), (25, 24), (4, 24))),
+        "play": (((10, 6), (26, 16), (10, 26), (10, 6)),),
+        "axes": (((15, 6), (15, 20), (26, 24)), ((15, 20), (5, 26))),
+        "link": (((17, 7), (25, 7), (25, 15)), ((25, 7), (14, 18)),
+                 ((13, 10), (7, 10), (7, 25), (22, 25), (22, 19))),
+        "exit": (((16, 6), (5, 6), (5, 26), (16, 26)), ((12, 16), (28, 16)),
+                 ((22, 10), (28, 16), (22, 22))),
+    }
+    with QPainter(image) as painter:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(QColor(color), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        if kind in ("help", "info"):
+            painter.drawEllipse(4, 4, 24, 24)
+            font = painter.font()
+            font.setPixelSize(19)
+            font.setBold(True)
+            painter.setFont(font)
+            painter.drawText(image.rect(), Qt.AlignmentFlag.AlignCenter, "?" if kind == "help" else "i")
+        else:
+            for path in paths[kind]:
+                for start, end in zip(path, path[1:]):
+                    painter.drawLine(*start, *end)
+    image.setDevicePixelRatio(2)
+    return QIcon(image)
+
+
+class IconMenuBar(QMenuBar):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.icons = {}
+        self.setNativeMenuBar(False)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        with QPainter(self) as painter:
+            for action, icon in self.icons.items():
+                rect = self.actionGeometry(action)
+                icon.paint(painter, rect.left() + 11, rect.center().y() - 8, 16, 16)
 
 
 def panel_divider(vertical=False):
@@ -218,6 +268,7 @@ class ARMathWindow(QMainWindow):
     def __init__(self, camera_index):
         super().__init__()
         self.setWindowTitle("ARMath 2.0")
+        self.setWindowIcon(QIcon(str(Path(__file__).with_name("docs") / "imagens" / "armath-marcador.ico")))
         self.theme = DARK_THEME
         self.setStyleSheet(THEME_STYLE.substitute(self.theme))
         self.frame = None
@@ -267,14 +318,21 @@ class ARMathWindow(QMainWindow):
         header_layout.addWidget(camera_title)
         header_layout.addWidget(self.camera_status)
         header_layout.addStretch()
-        light_mode = ToggleSwitch("Modo claro")
-        light_mode.toggled.connect(self.set_light_mode)
+        self.theme_toggle = ToggleSwitch("Modo claro")
+        self.theme_toggle.toggled.connect(self.set_light_mode)
 
-        self.brand = QLabel("ARMath", self.menuBar())
+        self.setMenuBar(IconMenuBar(self))
+        menu_corner = QWidget(self.menuBar())
+        corner_layout = QHBoxLayout(menu_corner)
+        corner_layout.setContentsMargins(0, 0, 0, 0)
+        corner_layout.setSpacing(8)
+        self.brand = QLabel("ARMath", menu_corner)
         self.brand.setObjectName("brand")
         self.brand.setContentsMargins(10, 0, 10, 0)
         self.brand.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self.menuBar().setCornerWidget(self.brand, Qt.Corner.TopRightCorner)
+        corner_layout.addWidget(self.theme_toggle)
+        corner_layout.addWidget(self.brand)
+        self.menuBar().setCornerWidget(menu_corner, Qt.Corner.TopRightCorner)
         self.surface_name = QLabel("Aponte a câmera para um marcador")
         self.surface_name.setObjectName("surfaceName")
         self.surface_name.setWordWrap(True)
@@ -312,7 +370,20 @@ class ARMathWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         for action in (self.save_action, self.axes_action, self.restart_action, exit_action):
             menu.addAction(action)
-        self.menuBar().addAction("&Sobre", self.show_about)
+        help_menu = self.menuBar().addMenu("&Ajuda")
+        quick_start = help_menu.addAction("Como começar", self.show_quick_start)
+        markers = help_menu.addAction("Abrir pasta de marcadores", self.open_markers)
+        manual = help_menu.addAction("Manual do usuário", self.open_manual)
+        github = help_menu.addAction("GitHub do projeto", self.open_github)
+        help_menu.addSeparator()
+        about = help_menu.addAction("Sobre o ARMath", self.show_about)
+        self.menu_titles = {menu.menuAction(): "file", help_menu.menuAction(): "help"}
+        self.menu_items = {
+            self.save_action: "photo", self.axes_action: "axes", self.restart_action: "reset",
+            exit_action: "exit", quick_start: "play", markers: "folder", manual: "file",
+            github: "link", about: "info",
+        }
+        self.update_menu_icons()
 
         save_button = QPushButton(photo_icon(), "Salvar foto")
         save_button.setObjectName("savePhoto")
@@ -341,13 +412,21 @@ class ARMathWindow(QMainWindow):
         controls.setContentsMargins(0, 8, 0, 0)
         controls.setSpacing(12)
         controls.addWidget(save_button)
-        controls.addWidget(panel_divider(vertical=True))
-        controls.addWidget(axes_button)
-        controls.addWidget(self.box_toggle)
-        controls.addWidget(light_mode)
         controls.addStretch()
         controls.addWidget(restart_button)
         controls.addWidget(exit_button)
+
+        visualization_panel = QWidget()
+        visualization_panel.setObjectName("visualizationPanel")
+        visualization_layout = QVBoxLayout(visualization_panel)
+        visualization_layout.setContentsMargins(14, 10, 14, 10)
+        visualization_layout.setSpacing(10)
+        add_panel_title(visualization_layout, "Visualização")
+        visualization_controls = QHBoxLayout()
+        visualization_controls.addWidget(axes_button)
+        visualization_controls.addWidget(self.box_toggle)
+        visualization_controls.addStretch()
+        visualization_layout.addLayout(visualization_controls)
 
         transform_panel = QWidget()
         transform_panel.setObjectName("transformPanel")
@@ -428,7 +507,7 @@ class ARMathWindow(QMainWindow):
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(8)
-        sidebar_layout.addStretch()
+        sidebar_layout.addWidget(visualization_panel)
         sidebar_layout.addWidget(transform_panel)
         sidebar_layout.addWidget(plane_panel)
         sidebar_layout.addStretch()
@@ -441,11 +520,27 @@ class ARMathWindow(QMainWindow):
 
     def set_light_mode(self, enabled):
         self.theme = LIGHT_THEME if enabled else DARK_THEME
+        self.theme_toggle.setText("Modo escuro" if enabled else "Modo claro")
         self.setStyleSheet(THEME_STYLE.substitute(self.theme))
+        self.update_menu_icons()
         icon = reset_icon(self.theme["accent"])
         for button in self.findChildren(QPushButton, "resetSlider"):
             button.setIcon(icon)
         self.show_formula_image(self.active_marker)
+
+    def update_menu_icons(self):
+        green = self.theme["accent_text"]
+        self.menuBar().icons = {action: menu_icon(kind, green) for action, kind in self.menu_titles.items()}
+        for action, kind in self.menu_items.items():
+            if kind == "photo":
+                icon = photo_icon(green)
+            elif kind == "reset":
+                icon = reset_icon(green)
+            else:
+                icon = menu_icon(kind, self.theme["exit"] if kind == "exit" else green)
+            action.setIcon(icon)
+            action.setIconVisibleInMenu(True)
+        self.menuBar().update()
 
     def add_slider(self, layout, name, minimum, maximum, initial, format_value):
         slider = QSlider(Qt.Orientation.Horizontal)
@@ -657,6 +752,34 @@ class ARMathWindow(QMainWindow):
                 self.formula.setText(SURFACES[key[0]][1])
                 return
         self.show_formula_image(self.active_marker)
+
+    def show_quick_start(self):
+        QMessageBox.information(
+            self, "Como começar",
+            "1. Conecte a webcam e aguarde a imagem aparecer.\n\n"
+            "2. Mostre um marcador ArUco inteiro à câmera, com a margem branca visível.\n\n"
+            "3. Aguarde a superfície aparecer e mova o marcador devagar para explorá-la.",
+        )
+
+    def open_markers(self):
+        self.open_help_resource(Path("marcadores"), "a pasta de marcadores")
+
+    def open_manual(self):
+        self.open_help_resource(Path("docs") / "Manual_ARMath.pdf", "o manual do usuário")
+
+    def open_github(self):
+        url = QUrl("https://github.com/izaiasneri/ARmath/tree/main/ARMAth_2.0")
+        if not QDesktopServices.openUrl(url):
+            QMessageBox.warning(self, "Ajuda", "Não foi possível abrir o GitHub do projeto.")
+
+    def open_help_resource(self, relative_path, description):
+        source_root = Path(__file__).resolve().parent
+        roots = (source_root,)
+        if getattr(sys, "frozen", False):
+            roots = (Path(sys.executable).resolve().parent, source_root)
+        path = next((root / relative_path for root in roots if (root / relative_path).exists()), None)
+        if path is None or not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+            QMessageBox.warning(self, "Ajuda", f"Não foi possível abrir {description}.")
 
     def show_about(self):
         dialog = QDialog(self)
