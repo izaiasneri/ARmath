@@ -192,6 +192,11 @@ def menu_icon(kind, color):
                    ((4, 24), (8, 15), (29, 15), (25, 24), (4, 24))),
         "play": (((10, 6), (26, 16), (10, 26), (10, 6)),),
         "axes": (((15, 6), (15, 20), (26, 24)), ((15, 20), (5, 26))),
+        "cut": (((4, 19), (13, 12), (28, 15), (19, 22), (4, 19)),
+                ((16, 5), (16, 16)), ((16, 20), (16, 27))),
+        "transform": (((10, 21), (6, 9), (20, 5), (24, 16)),
+                      ((12, 25), (13, 29), (27, 25), (26, 22)),
+                      ((23, 10), (29, 11), (29, 17))),
         "link": (((17, 7), (25, 7), (25, 15)), ((25, 7), (14, 18)),
                  ((13, 10), (7, 10), (7, 25), (22, 25), (22, 19))),
         "exit": (((16, 6), (5, 6), (5, 26), (16, 26)), ((12, 16), (28, 16)),
@@ -207,10 +212,30 @@ def menu_icon(kind, color):
             font.setBold(True)
             painter.setFont(font)
             painter.drawText(image.rect(), Qt.AlignmentFlag.AlignCenter, "?" if kind == "help" else "i")
+        elif kind == "broadcast":
+            painter.drawEllipse(14, 9, 4, 4)
+            painter.drawLine(16, 13, 16, 27)
+            painter.drawLine(11, 27, 21, 27)
+            painter.drawArc(9, 4, 14, 14, -45 * 16, 90 * 16)
+            painter.drawArc(9, 4, 14, 14, 135 * 16, 90 * 16)
+            painter.drawArc(4, 0, 24, 22, -45 * 16, 90 * 16)
+            painter.drawArc(4, 0, 24, 22, 135 * 16, 90 * 16)
+        elif kind == "eye":
+            outline = QPainterPath()
+            outline.moveTo(3, 16)
+            outline.cubicTo(10, 6, 22, 6, 29, 16)
+            outline.cubicTo(22, 26, 10, 26, 3, 16)
+            painter.drawPath(outline)
+            painter.drawEllipse(12, 12, 8, 8)
         else:
             for path in paths[kind]:
                 for start, end in zip(path, path[1:]):
                     painter.drawLine(*start, *end)
+            if kind == "transform":
+                arrow = QPainterPath()
+                arrow.moveTo(5, 17)
+                arrow.cubicTo(-7, 32, 25, 25, 29, 11)
+                painter.drawPath(arrow)
     image.setDevicePixelRatio(2)
     return QIcon(image)
 
@@ -237,13 +262,6 @@ def panel_divider(vertical=False):
     else:
         divider.setFixedHeight(1)
     return divider
-
-
-def add_panel_title(layout, text):
-    title = QLabel(text)
-    title.setObjectName("panelTitle")
-    layout.addWidget(title)
-    layout.addWidget(panel_divider())
 
 
 def render_formula_png(expression, color):
@@ -311,13 +329,22 @@ class ARMathWindow(QMainWindow):
         camera_header.setObjectName("cameraHeader")
         camera_title = QLabel("Câmera")
         camera_title.setObjectName("cameraTitle")
+        self.heading_icons = {}
         self.camera_status = QLabel("Conectando…")
         self.camera_status.setObjectName("cameraStatus")
+        self.live_icon = QLabel()
+        self.live_icon.setFixedSize(16, 16)
+        self.live_icon.setPixmap(menu_icon("broadcast", self.theme["accent_text"]).pixmap(QSize(16, 16)))
+        self.live_icon.hide()
         header_layout = QHBoxLayout(camera_header)
         header_layout.setContentsMargins(12, 6, 12, 6)
-        header_layout.addWidget(camera_title)
-        header_layout.addWidget(self.camera_status)
+        self.add_heading(header_layout, camera_title, photo_icon)
         header_layout.addStretch()
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(5)
+        status_layout.addWidget(self.live_icon)
+        status_layout.addWidget(self.camera_status)
+        header_layout.addLayout(status_layout)
         self.theme_toggle = ToggleSwitch("Modo claro")
         self.theme_toggle.toggled.connect(self.set_light_mode)
 
@@ -390,12 +417,15 @@ class ARMathWindow(QMainWindow):
         save_button.setEnabled(False)
         self.save_action.changed.connect(lambda: save_button.setEnabled(self.save_action.isEnabled()))
         save_button.clicked.connect(self.save_action.trigger)
-        axes_button = ToggleSwitch("Eixos 3D")
+        axes_button = ToggleSwitch("Eixos")
         axes_button.toggled.connect(self.axes_action.setChecked)
         self.axes_action.toggled.connect(axes_button.setChecked)
         self.box_toggle = ToggleSwitch("Caixa")
         self.box_toggle.setToolTip("Mostrar a caixa que delimita a superfície")
         self.box_toggle.toggled.connect(self.render_frame)
+        self.grid_toggle = ToggleSwitch("Grade")
+        self.grid_toggle.setToolTip("Mostrar três planos de referência com escala numérica")
+        self.grid_toggle.toggled.connect(self.render_frame)
         restart_button = QPushButton("Reiniciar câmera")
         restart_button.hide()
         self.restart_action.visibleChanged.connect(
@@ -421,10 +451,11 @@ class ARMathWindow(QMainWindow):
         visualization_layout = QVBoxLayout(visualization_panel)
         visualization_layout.setContentsMargins(14, 10, 14, 10)
         visualization_layout.setSpacing(10)
-        add_panel_title(visualization_layout, "Visualização")
+        self.add_panel_title(visualization_layout, "Visualização", lambda color: menu_icon("eye", color))
         visualization_controls = QHBoxLayout()
         visualization_controls.addWidget(axes_button)
         visualization_controls.addWidget(self.box_toggle)
+        visualization_controls.addWidget(self.grid_toggle)
         visualization_controls.addStretch()
         visualization_layout.addLayout(visualization_controls)
 
@@ -433,7 +464,7 @@ class ARMathWindow(QMainWindow):
         transform_layout = QVBoxLayout(transform_panel)
         transform_layout.setContentsMargins(14, 10, 14, 10)
         transform_layout.setSpacing(10)
-        add_panel_title(transform_layout, "Transformação")
+        self.add_panel_title(transform_layout, "Transformação", lambda color: menu_icon("transform", color))
         self.zoom_slider = self.add_slider(
             transform_layout, "Escala", 100, 300, round(SURFACE_SCALE * 100),
             lambda value: f"{value / 100:.2f}×".replace(".", ","),
@@ -454,7 +485,7 @@ class ARMathWindow(QMainWindow):
         plane_layout = QVBoxLayout(plane_panel)
         plane_layout.setContentsMargins(14, 10, 14, 10)
         plane_layout.setSpacing(10)
-        add_panel_title(plane_layout, "Plano de corte")
+        self.add_panel_title(plane_layout, "Plano de corte", lambda color: menu_icon("cut", color))
         self.plane_toggle = ToggleSwitch()
         self.plane_toggle.setAccessibleName("Mostrar plano")
         plane_toggle_row = QHBoxLayout()
@@ -521,12 +552,33 @@ class ARMathWindow(QMainWindow):
     def set_light_mode(self, enabled):
         self.theme = LIGHT_THEME if enabled else DARK_THEME
         self.theme_toggle.setText("Modo escuro" if enabled else "Modo claro")
+        self.live_icon.setPixmap(menu_icon("broadcast", self.theme["accent_text"]).pixmap(QSize(16, 16)))
         self.setStyleSheet(THEME_STYLE.substitute(self.theme))
         self.update_menu_icons()
+        for label, make_icon in self.heading_icons.items():
+            label.setPixmap(make_icon(self.theme["text"]).pixmap(QSize(16, 16)))
         icon = reset_icon(self.theme["accent"])
         for button in self.findChildren(QPushButton, "resetSlider"):
             button.setIcon(icon)
         self.show_formula_image(self.active_marker)
+
+    def add_heading(self, layout, title, make_icon):
+        label = QLabel()
+        label.setFixedSize(16, 16)
+        label.setPixmap(make_icon(self.theme["text"]).pixmap(QSize(16, 16)))
+        self.heading_icons[label] = make_icon
+        layout.addWidget(label)
+        layout.addWidget(title)
+
+    def add_panel_title(self, layout, text, make_icon):
+        title = QLabel(text)
+        title.setObjectName("panelTitle")
+        row = QHBoxLayout()
+        row.setSpacing(7)
+        self.add_heading(row, title, make_icon)
+        row.addStretch()
+        layout.addLayout(row)
+        layout.addWidget(panel_divider())
 
     def update_menu_icons(self):
         green = self.theme["accent_text"]
@@ -601,6 +653,7 @@ class ARMathWindow(QMainWindow):
         if self.camera_status.property("state") == state:
             return
         self.camera_status.setText(text)
+        self.live_icon.setVisible(state == "live")
         self.camera_status.setProperty("state", state)
         style = self.camera_status.style()
         style.unpolish(self.camera_status)
@@ -663,7 +716,7 @@ class ARMathWindow(QMainWindow):
     def update_frame(self, frame):
         self.camera_frame = frame
         self.render_frame()
-        self.set_camera_status("● Ao vivo", "live")
+        self.set_camera_status("Ao vivo", "live")
         self.save_action.setEnabled(True)
 
     def render_frame(self):
@@ -676,7 +729,8 @@ class ARMathWindow(QMainWindow):
             plane = (axis, self.plane_slider.value() / 100)
         marker_id = draw_augmentation(
             frame, self.detector, self.axes_action.isChecked(),
-            self.zoom_slider.value() / 100, self.rotation, plane, show_box=self.box_toggle.isChecked(),
+            self.zoom_slider.value() / 100, self.rotation, plane,
+            show_box=self.box_toggle.isChecked(), show_grid=self.grid_toggle.isChecked(),
         )
         if marker_id is not None:
             self.marker_loss_timer.stop()

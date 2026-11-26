@@ -12,6 +12,7 @@ MARKER_SIZE = 0.08
 SURFACE_SCALE = 1.0
 SURFACE_OPACITY = 0.94
 HALF = MARKER_SIZE / 2
+EXPLICIT_Z_SCALE = 0.65
 MARKER_CORNERS = np.array(
     [[-HALF, HALF, 0], [HALF, HALF, 0], [HALF, -HALF, 0], [-HALF, -HALF, 0]],
     dtype=np.float64,
@@ -37,7 +38,7 @@ def surface_mesh(function):
     coordinates = np.linspace(-1, 1, 17)
     x, y = np.meshgrid(coordinates, coordinates)
     z = function(x, y)
-    return np.stack((x * HALF, y * HALF, z * HALF * 0.65), axis=-1)
+    return np.stack((x * HALF, y * HALF, z * HALF * EXPLICIT_Z_SCALE), axis=-1)
 
 
 def angular_mesh(function, start, stop):
@@ -204,7 +205,108 @@ def draw_labeled_axes(frame, camera, orientation, translation):
             cv2.putText(frame, label, position, font, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
 
 
-def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation, plane=None, show_box=False):
+def reference_ticks(values):
+    low, high = values.min(), values.max()
+    target_step = max(high - low, 0.1) / 4
+    magnitude = 10 ** np.floor(np.log10(target_step))
+    step = next(factor * magnitude for factor in (1, 2, 2.5, 5, 10)
+                if factor * magnitude >= target_step)
+    return np.arange(np.floor(low / step), np.ceil(high / step) + 1) * step
+
+
+def draw_dashed_grid_line(frame, start, end):
+    height, width = frame.shape[:2]
+    visible, start, end = cv2.clipLine((0, 0, width, height), tuple(start), tuple(end))
+    if not visible:
+        return
+    start = np.asarray(start, dtype=float)
+    direction = np.asarray(end, dtype=float) - start
+    length = np.linalg.norm(direction)
+    if length < 2:
+        return
+    direction /= length
+    for offset in range(0, int(length), 8):
+        dash_start = (start + offset * direction).round().astype(int)
+        dash_end = (start + min(offset + 4, length) * direction).round().astype(int)
+        cv2.line(frame, tuple(dash_start), tuple(dash_end), (255, 255, 255), 1, cv2.LINE_AA)
+
+
+def draw_reference_grid(frame, mesh, units, camera, orientation, translation):
+    coordinates = mesh / units
+    ticks = [reference_ticks(coordinates[:, :, axis]) for axis in range(3)]
+    lower_corner = np.array([values[0] for values in ticks])
+    upper_corner = np.array([values[-1] for values in ticks])
+    segments = []
+    annotations = []
+    for axis in range(3):
+        next_axis = (axis + 1) % 3
+        other_axis = (axis + 2) % 3
+        for value in ticks[axis]:
+            start = lower_corner.copy()
+            start[axis] = value
+            for across in (next_axis, other_axis):
+                end = start.copy()
+                end[across] = upper_corner[across]
+                segments.append((start, end))
+            label_point = start.copy()
+            label_point[next_axis] = upper_corner[next_axis]
+            number = f"{value:.3g}".replace(".", ",")
+            annotations.append((label_point, number))
+
+    label_points, numbers = zip(*annotations)
+    faces = []
+    for axis in range(3):
+        first, second = (coordinate for coordinate in range(3) if coordinate != axis)
+        face = np.tile(lower_corner, (4, 1))
+        face[[1, 2], first] = upper_corner[first]
+        face[[2, 3], second] = upper_corner[second]
+        faces.append(face)
+    points = np.concatenate(
+        (np.array(segments).reshape(-1, 3), label_points, np.array(faces).reshape(-1, 3))
+    ) * units
+    depth = (points @ orientation.T)[:, 2] + translation[2, 0]
+    rotation = cv2.Rodrigues(orientation)[0]
+    projected = cv2.projectPoints(points, rotation, translation, camera, None)[0].reshape(-1, 2)
+    pixels = np.clip(projected, -32768, 32767).round().astype(np.int32)
+    split = 2 * len(segments)
+    face_start = split + len(numbers)
+    fill = frame.copy()
+    # Faces are generated normal to X (YZ), Y (XZ), then Z (XY).
+    face_colors = ((65, 65, 215), (220, 135, 55), (50, 205, 245))
+    for face, face_depth, color in zip(
+        pixels[face_start:].reshape(-1, 4, 2), depth[face_start:].reshape(-1, 4), face_colors,
+    ):
+        if np.all(face_depth > 1e-6):
+            cv2.fillConvexPoly(fill, face, color, cv2.LINE_AA)
+    cv2.addWeighted(fill, 0.45, frame, 0.55, 0, dst=frame)
+    for line, line_depth in zip(pixels[:split].reshape(-1, 2, 2), depth[:split].reshape(-1, 2)):
+        if np.all(line_depth > 1e-6):
+            draw_dashed_grid_line(frame, line[0], line[1])
+    return [(point, number) for point, number, z in
+            zip(pixels[split:face_start], numbers, depth[split:face_start])
+            if z > 1e-6]
+
+
+def draw_grid_numbers(frame, annotations):
+    height, width = frame.shape[:2]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    labels = []
+    for (x, y), number in annotations:
+        if 0 <= x < width and 0 <= y < height:
+            (text_width, text_height), baseline = cv2.getTextSize(number, font, 0.4, 1)
+            origin = (min(x + 4, width - text_width - 2), max(text_height + 2, y - 4))
+            left, bottom = origin
+            right, top = left + text_width, bottom - text_height
+            bottom += baseline
+            if any(left <= r and right >= l and top <= b and bottom >= t for l, t, r, b in labels):
+                continue
+            labels.append((left, top, right, bottom))
+            cv2.putText(frame, number, origin, font, 0.4, (20, 20, 20), 3, cv2.LINE_AA)
+            cv2.putText(frame, number, origin, font, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+
+
+def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation,
+                 plane=None, show_box=False, show_grid=False):
     height, width = frame.shape[:2]
     focal = max(width, height)
     camera = np.array([[focal, 0, width / 2], [0, focal, height / 2], [0, 0, 1]], dtype=float)
@@ -225,6 +327,13 @@ def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation, pl
         offset = plane_position(scaled_mesh, axis, position)
         grid = cutting_plane_mesh(scaled_mesh, axis, offset) @ local_rotation.T
         cells.extend(mesh_cells(grid, rotation, translation, camera, marker_rotation, is_plane=True))
+    if show_grid:
+        # Explicit z=f(x,y) surfaces compress the vertical coordinate for display.
+        vertical_scale = EXPLICIT_Z_SCALE if SURFACES[marker_id][2].func is surface_mesh else 1.0
+        units = HALF * scale * np.array((1, 1, vertical_scale))
+        annotations = draw_reference_grid(
+            frame, scaled_mesh, units, camera, marker_rotation @ local_rotation, translation,
+        )
     overlay = frame.copy()
     wire_mask = np.zeros((height, width), dtype=np.uint8)
     for _, is_plane, quad, elevation in sorted(cells, key=lambda cell: cell[0], reverse=True):
@@ -255,12 +364,15 @@ def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation, pl
         vertices = np.array(list(product(*bounds.T))) @ local_rotation.T
         edges = [(index, index | bit) for index in range(8) for bit in (1, 2, 4) if not index & bit]
         draw_white_segments(frame, vertices[edges, :], camera, rotation, translation, marker_rotation, 1)
+    if show_grid:
+        draw_grid_numbers(frame, annotations)
     if show_axes:
         draw_labeled_axes(frame, camera, marker_rotation @ local_rotation, translation)
     return True
 
 
-def draw_augmentation(frame, detector, show_axes, scale, local_rotation, plane=None, show_box=False):
+def draw_augmentation(frame, detector, show_axes, scale, local_rotation,
+                      plane=None, show_box=False, show_grid=False):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     corners, ids, _ = detector.detectMarkers(gray)
     if ids is None:
@@ -272,7 +384,7 @@ def draw_augmentation(frame, detector, show_axes, scale, local_rotation, plane=N
     ]
     # The formula panel follows the most prominent supported marker.
     for _, marker_id, quad in sorted(matches, key=lambda match: match[0], reverse=True):
-        if draw_surface(frame, quad, marker_id, show_axes, scale, local_rotation, plane, show_box):
+        if draw_surface(frame, quad, marker_id, show_axes, scale, local_rotation, plane, show_box, show_grid):
             return marker_id
     return None
 
