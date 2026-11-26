@@ -4,11 +4,17 @@ O ARMath 2.0 usa marcadores ArUco para projetar superfícies matemáticas sobre 
 
 ## O que mudou na versão 2.0
 
-A câmera e a equação ficam à esquerda. À direita, o cartão **Transformação** reúne os controles de escala e rotação, com redefinição individual ou em conjunto. Os eixos 3D acompanham a rotação da superfície. O cartão **Plano de corte** permite selecionar e deslocar um plano vermelho com malha amarela e destaca a interseção com a superfície em branco. A interface usa detalhes em verde neon e oferece temas escuro e claro.
+A câmera e a equação ficam à esquerda. Na coluna lateral, o painel **Visualização** reúne **Eixos 3D** e **Caixa**. O painel **Transformação** reúne escala, rotação e redefinição dos ajustes. Em **Plano de corte**, é possível deslocar um plano vermelho com malha amarela e observar a interseção em branco.
+
+O seletor de tema fica ao lado da marca **ARMath**, no canto superior direito. O menu **Ajuda** reúne o guia rápido, a pasta de marcadores, o [manual em PDF](docs/Manual_ARMath.pdf), o GitHub do projeto e a janela **Sobre o ARMath**.
 
 ## Telas do aplicativo
 
 As capturas mostram a interface do ARMath 2.0 com quadros simulados da câmera.
+
+**Painel Visualização com a caixa ativada**
+
+![Elipsoide delimitado por uma caixa de arestas brancas no ARMath 2.0](docs/imagens/armath-2-caixa.png)
 
 **Modo escuro com plano de corte e interseção em branco**
 
@@ -38,11 +44,12 @@ Os PNGs para imprimir estão na pasta `marcadores`. Para gerar mais cópias, exe
 - **Escala** ajusta o tamanho da superfície de **1× a 3×**, com valor inicial de **1×**.
 - **Rotação X, Y e Z** gira a malha em torno do centro do marcador. Cada controle vai de **−180° a 180°**.
 - **Eixos 3D** mostra os eixos X, Y e Z, que giram junto com a superfície.
+- **Caixa** mostra as arestas brancas de uma caixa retangular que delimita a superfície. A caixa acompanha a escala e a rotação da figura.
 - **Redefinir** volta à escala **1×** e às três rotações em **0°**.
 - O **ícone de seta circular** ao lado de cada valor restaura apenas aquele controle.
 - **Mostrar plano** exibe um plano vermelho preenchido com malha amarela. Escolha um único plano entre **XY**, **XZ** e **YZ**. O contorno branco destaca a interseção quando houver corte.
 - O **deslocamento do plano** começa na origem, no centro do deslizador. As duas pontas do controle levam o plano ao menor e ao maior valor da superfície no eixo perpendicular ao corte. O alcance acompanha a escala da figura. Use a seta circular para voltar à origem.
-- **Modo claro** alterna o tema da interface. O aplicativo abre no modo escuro.
+- **Modo claro** ativa o tema claro. Com ele ativo, o seletor passa a exibir **Modo escuro**. O aplicativo abre no tema escuro.
 - **Salvar foto** captura o quadro com a superfície no tamanho e na orientação atuais.
 
 A malha 3D aparece em verde neon sobre o vídeo. O nome e a equação são exibidos abaixo da prévia.
