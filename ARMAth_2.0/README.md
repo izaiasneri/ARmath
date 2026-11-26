@@ -28,6 +28,31 @@ As capturas mostram a interface do ARMath 2.0 com quadros simulados da câmera.
 
 ![Janela Sobre do ARMath 2.0 com o logotipo verde, a descrição e os créditos](docs/imagens/armath-2-sobre.png)
 
+## Menus
+
+### Arquivo
+
+![Menu Arquivo aberto no ARMath 2.0](docs/imagens/armath-2-menu-arquivo.png)
+
+| Item | O que faz |
+| --- | --- |
+| **Salvar foto** (`Ctrl+S`) | Salva em PNG o quadro atual da câmera com a visualização da superfície. |
+| **Eixos 3D** (`Ctrl+E`) | Mostra ou oculta os eixos X, Y e Z. É o mesmo controle disponível no painel **Visualização**. |
+| **Reiniciar câmera** | Tenta reconectar a webcam. A opção aparece quando a câmera está indisponível. |
+| **Sair** (`Ctrl+Q`) | Fecha o aplicativo. |
+
+### Ajuda
+
+![Menu Ajuda aberto no ARMath 2.0](docs/imagens/armath-2-menu-ajuda.png)
+
+| Item | O que faz |
+| --- | --- |
+| **Como começar** | Mostra três passos para conectar a webcam, posicionar um marcador e explorar a primeira superfície. |
+| **Abrir pasta de marcadores** | Abre a pasta com os PNGs dos marcadores ArUco, que podem ser impressos ou exibidos em outro dispositivo. |
+| **Manual do usuário** | Abre o [manual em PDF](docs/Manual_ARMath.pdf) com instruções e marcadores para imprimir. |
+| **GitHub do projeto** | Abre a [página do ARMath 2.0 no GitHub](https://github.com/izaiasneri/ARmath/tree/main/ARMAth_2.0) no navegador. |
+| **Sobre o ARMath** | Exibe a versão, a descrição e os créditos do aplicativo. |
+
 ## Como executar
 
 Na pasta `ARMAth_2.0`, instale as dependências, caso ainda não estejam instaladas, e execute o aplicativo.
