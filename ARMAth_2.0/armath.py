@@ -180,6 +180,30 @@ def draw_white_segments(frame, segments, camera, rotation, translation, marker_r
         cv2.polylines(frame, pixels.reshape(-1, 2, 2), False, (255, 255, 255), thickness, cv2.LINE_AA)
 
 
+def draw_labeled_axes(frame, camera, orientation, translation):
+    points = np.vstack((np.zeros(3), np.eye(3) * (HALF * 1.4)))
+    depth = (points @ orientation.T)[:, 2] + translation[2, 0]
+    if depth[0] <= 1e-6:
+        return
+    rotation = cv2.Rodrigues(orientation)[0]
+    projected = cv2.projectPoints(points, rotation, translation, camera, None)[0].reshape(-1, 2)
+    pixels = np.clip(projected, -32768, 32767).round().astype(np.int32)
+    height, width = frame.shape[:2]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    for index, (label, color) in enumerate(
+        (("X", (0, 0, 255)), ("Y", (0, 255, 0)), ("Z", (255, 0, 0))), start=1
+    ):
+        if depth[index] <= 1e-6:
+            continue
+        x, y = pixels[index]
+        cv2.line(frame, tuple(pixels[0]), (x, y), color, 2, cv2.LINE_AA)
+        if 0 <= x < width and 0 <= y < height:
+            (label_width, label_height), baseline = cv2.getTextSize(label, font, 0.55, 2)
+            position = (min(x + 5, width - label_width - 2), max(label_height + 2, y - baseline))
+            cv2.putText(frame, label, position, font, 0.55, (0, 0, 0), 4, cv2.LINE_AA)
+            cv2.putText(frame, label, position, font, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
+
+
 def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation, plane=None, show_box=False):
     height, width = frame.shape[:2]
     focal = max(width, height)
@@ -223,9 +247,6 @@ def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation, pl
                    cv2.convertScaleAbs(glow, alpha=0.34), np.zeros_like(glow))),
         dst=frame,
     )
-    if show_axes:
-        axes_rotation = cv2.Rodrigues(marker_rotation @ local_rotation)[0]
-        cv2.drawFrameAxes(frame, camera, None, axes_rotation, translation, HALF * 1.4, 2)
     if plane is not None:
         section = plane_section(scaled_mesh, axis, offset) @ local_rotation.T
         draw_white_segments(frame, section, camera, rotation, translation, marker_rotation, 3)
@@ -234,6 +255,8 @@ def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation, pl
         vertices = np.array(list(product(*bounds.T))) @ local_rotation.T
         edges = [(index, index | bit) for index in range(8) for bit in (1, 2, 4) if not index & bit]
         draw_white_segments(frame, vertices[edges, :], camera, rotation, translation, marker_rotation, 1)
+    if show_axes:
+        draw_labeled_axes(frame, camera, marker_rotation @ local_rotation, translation)
     return True
 
 
