@@ -1,4 +1,6 @@
 import argparse
+import ast
+import operator
 import sys
 from functools import partial
 from itertools import product
@@ -67,6 +69,45 @@ def double_cone(u, z):
     return radius * np.cos(u), radius * np.sin(u), z
 
 
+CUSTOM_MARKER_ID = 9
+DEFAULT_EXPRESSION = "x+y"
+OPERATORS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+             ast.Div: np.divide, ast.Pow: np.power, ast.UAdd: operator.pos, ast.USub: operator.neg}
+FUNCTIONS = {name: getattr(np, name) for name in ("sin", "cos", "tan", "exp", "sqrt", "log", "abs")}
+
+
+def evaluate_expression(node, variables):
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+        return np.float64(node.value)
+    if isinstance(node, ast.Name) and node.id in variables:
+        return variables[node.id]
+    if isinstance(node, ast.BinOp) and type(node.op) in OPERATORS:
+        return OPERATORS[type(node.op)](evaluate_expression(node.left, variables),
+                                        evaluate_expression(node.right, variables))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in OPERATORS:
+        return OPERATORS[type(node.op)](evaluate_expression(node.operand, variables))
+    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            and node.func.id in FUNCTIONS and len(node.args) == 1 and not node.keywords):
+        return FUNCTIONS[node.func.id](evaluate_expression(node.args[0], variables))
+    raise ValueError("Use x, y e as operações permitidas.")
+
+
+def build_custom_mesh(expression):
+    if not expression or len(expression) > 120:
+        raise ValueError("Digite uma expressão de até 120 caracteres.")
+    tree = ast.parse(expression.replace("^", "**"), mode="eval")
+
+    def function(x, y):
+        values = evaluate_expression(tree.body, {"x": x, "y": y, "pi": np.pi, "e": np.e})
+        return np.broadcast_to(values, x.shape)
+
+    with np.errstate(divide="raise", invalid="raise", over="raise"):
+        mesh = surface_mesh(function)
+    if not np.isfinite(mesh).all():
+        raise ValueError("A função deve ter valores reais e finitos na malha.")
+    return mesh
+
+
 SURFACES = {
     0: ("Paraboloide elíptico", r"z=2x^2+2y^2", partial(surface_mesh, lambda x, y: 2*x**2 + 2*y**2)),
     1: ("Paraboloide hiperbólico (sela)", r"z=2x^2-2y^2", partial(surface_mesh, lambda x, y: 2*x**2 - 2*y**2)),
@@ -104,7 +145,67 @@ SURFACES = {
 }
 
 
+SURFACES[CUSTOM_MARKER_ID] = (
+    "Função personalizada", f"z={DEFAULT_EXPRESSION}", partial(build_custom_mesh, DEFAULT_EXPRESSION),
+)
 MESHES = {marker_id: build_mesh() for marker_id, (_, _, build_mesh) in SURFACES.items()}
+
+
+def set_custom_expression(expression):
+    mesh = build_custom_mesh(expression)
+    SURFACES[CUSTOM_MARKER_ID] = ("Função personalizada", f"z={expression}",
+                                  partial(build_custom_mesh, expression))
+    MESHES[CUSTOM_MARKER_ID] = mesh
+
+
+def custom_formula_latex(expression):
+    def render(node, group=False):
+        if isinstance(node, ast.Constant):
+            mantissa, separator, exponent = str(node.value).partition("e")
+            return rf"{mantissa}\times 10^{{{exponent}}}" if separator else mantissa
+        if isinstance(node, ast.Name):
+            return r"\pi" if node.id == "pi" else node.id
+        if isinstance(node, ast.UnaryOp):
+            sign = "-" if isinstance(node.op, ast.USub) else "+"
+            return sign + render(node.operand, group=True)
+        if isinstance(node, ast.Call):
+            argument = render(node.args[0])
+            name = node.func.id
+            if name == "sqrt":
+                return rf"\sqrt{{{argument}}}"
+            if name == "abs":
+                return rf"\left|{argument}\right|"
+            if name == "exp":
+                return rf"e^{{{argument}}}"
+            return rf"\{name}\left({argument}\right)"
+        if isinstance(node.op, ast.Div):
+            return rf"\frac{{{render(node.left)}}}{{{render(node.right)}}}"
+        if isinstance(node.op, ast.Pow):
+            base = render(node.left, group=True)
+            if (isinstance(node.left, (ast.UnaryOp, ast.Call))
+                    or isinstance(node.left, ast.BinOp) and isinstance(node.left.op, ast.Pow)):
+                base = rf"\left({base}\right)"
+            return rf"{{{base}}}^{{{render(node.right)}}}"
+        symbol = {ast.Add: "+", ast.Sub: "-", ast.Mult: r"\cdot "}[type(node.op)]
+        result = render(node.left, group=True) + symbol + render(node.right, group=True)
+        return rf"\left({result}\right)" if group else result
+
+    tree = ast.parse(expression.replace("^", "**"), mode="eval")
+    return f"f(x,y)={render(tree.body)}"
+
+
+def coordinate_units(marker_id, scale):
+    builder = SURFACES[marker_id][2].func
+    z_scale = EXPLICIT_Z_SCALE if builder in (surface_mesh, build_custom_mesh) else 1.0
+    return HALF * scale * np.array((1, 1, z_scale))
+
+
+def format_cut_coordinate(marker_id, axis, position):
+    units = coordinate_units(marker_id, 1)
+    value = plane_position(MESHES[marker_id], axis, position) / units[axis]
+    number = f"{value:.4g}".replace(".", ",")
+    coordinate = "xyz"[axis]
+    return f"{coordinate} = {number}"
 
 
 def surface_rotation(angles):
@@ -207,6 +308,8 @@ def draw_labeled_axes(frame, camera, orientation, translation):
 
 def reference_ticks(values):
     low, high = values.min(), values.max()
+    if low == high:
+        low, high = low - 0.05, high + 0.05
     target_step = max(high - low, 0.1) / 4
     magnitude = 10 ** np.floor(np.log10(target_step))
     step = next(factor * magnitude for factor in (1, 2, 2.5, 5, 10)
@@ -262,7 +365,8 @@ def draw_reference_grid(frame, mesh, units, camera, orientation, translation):
         face[[2, 3], second] = upper_corner[second]
         faces.append(face)
     points = np.concatenate(
-        (np.array(segments).reshape(-1, 3), label_points, np.array(faces).reshape(-1, 3))
+        (np.array(segments).reshape(-1, 3), label_points, np.array(faces).reshape(-1, 3),
+         [(lower_corner + upper_corner) / 2])
     ) * units
     depth = (points @ orientation.T)[:, 2] + translation[2, 0]
     rotation = cv2.Rodrigues(orientation)[0]
@@ -274,7 +378,7 @@ def draw_reference_grid(frame, mesh, units, camera, orientation, translation):
     # Faces are generated normal to X (YZ), Y (XZ), then Z (XY).
     face_colors = ((65, 65, 215), (220, 135, 55), (50, 205, 245))
     for face, face_depth, color in zip(
-        pixels[face_start:].reshape(-1, 4, 2), depth[face_start:].reshape(-1, 4), face_colors,
+        pixels[face_start:-1].reshape(-1, 4, 2), depth[face_start:-1].reshape(-1, 4), face_colors,
     ):
         if np.all(face_depth > 1e-6):
             cv2.fillConvexPoly(fill, face, color, cv2.LINE_AA)
@@ -282,7 +386,7 @@ def draw_reference_grid(frame, mesh, units, camera, orientation, translation):
     for line, line_depth in zip(pixels[:split].reshape(-1, 2, 2), depth[:split].reshape(-1, 2)):
         if np.all(line_depth > 1e-6):
             draw_dashed_grid_line(frame, line[0], line[1])
-    return [(point, number) for point, number, z in
+    return [(point, number, pixels[-1]) for point, number, z in
             zip(pixels[split:face_start], numbers, depth[split:face_start])
             if z > 1e-6]
 
@@ -291,10 +395,13 @@ def draw_grid_numbers(frame, annotations):
     height, width = frame.shape[:2]
     font = cv2.FONT_HERSHEY_SIMPLEX
     labels = []
-    for (x, y), number in annotations:
+    for (x, y), number, (center_x, center_y) in annotations:
         if 0 <= x < width and 0 <= y < height:
             (text_width, text_height), baseline = cv2.getTextSize(number, font, 0.4, 1)
-            origin = (min(x + 4, width - text_width - 2), max(text_height + 2, y - 4))
+            left = x + 4 if x >= center_x else x - text_width - 4
+            bottom = y + text_height + 4 if y >= center_y else y - 4
+            origin = (int(np.clip(left, 2, max(2, width - text_width - 2))),
+                      int(np.clip(bottom, text_height + 2, max(text_height + 2, height - baseline - 2))))
             left, bottom = origin
             right, top = left + text_width, bottom - text_height
             bottom += baseline
@@ -329,8 +436,7 @@ def draw_surface(frame, corners, marker_id, show_axes, scale, local_rotation,
         cells.extend(mesh_cells(grid, rotation, translation, camera, marker_rotation, is_plane=True))
     if show_grid:
         # Explicit z=f(x,y) surfaces compress the vertical coordinate for display.
-        vertical_scale = EXPLICIT_Z_SCALE if SURFACES[marker_id][2].func is surface_mesh else 1.0
-        units = HALF * scale * np.array((1, 1, vertical_scale))
+        units = coordinate_units(marker_id, scale)
         annotations = draw_reference_grid(
             frame, scaled_mesh, units, camera, marker_rotation @ local_rotation, translation,
         )
