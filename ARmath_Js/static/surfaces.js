@@ -3,18 +3,18 @@
 const surfaces = (() => {
   const {sin, cos, hypot, exp, PI} = Math;
   const catalog = [
-    ["Paraboloide elíptico", "z = 2x² + 2y²", (x,y) => 2*x*x+2*y*y],
-    ["Paraboloide hiperbólico (sela)", "z = 2x² − 2y²", (x,y) => 2*x*x-2*y*y],
-    ["Ondas senoidais", "z = sen(2x) cos(2y)", (x,y) => sin(2*x)*cos(2*y)],
-    ["Elipsoide", "x²/0,9² + y²/0,7² + z²/0,5² = 1", (u,v) => [.9*cos(u)*sin(v),.7*sin(u)*sin(v),.5*cos(v)], 0, PI],
-    ["Toro", "(√(x² + y²) − 0,65)² + z² = 0,25²", (u,v) => {
+    ["Paraboloide elíptico", "z=2x^{2}+2y^{2}", (x,y) => 2*x*x+2*y*y],
+    ["Paraboloide hiperbólico (sela)", "z=2x^{2}-2y^{2}", (x,y) => 2*x*x-2*y*y],
+    ["Ondas senoidais", "z=\\sin(2x)\\cos(2y)", (x,y) => sin(2*x)*cos(2*y)],
+    ["Elipsoide", "\\frac{x^{2}}{0{,}9^{2}}+\\frac{y^{2}}{0{,}7^{2}}+\\frac{z^{2}}{0{,}5^{2}}=1", (u,v) => [.9*cos(u)*sin(v),.7*sin(u)*sin(v),.5*cos(v)], 0, PI],
+    ["Toro", "{(\\sqrt{x^{2}+y^{2}}-0{,}65)}^{2}+z^{2}=0{,}25^{2}", (u,v) => {
       const r = .65+.25*cos(v);
       return [r*cos(u),r*sin(u),.25*sin(v)];
     }, 0, 2*PI],
-    ["Hiperboloide de uma folha", "x² + y² − z² = 0,45²", (u,z) => [hypot(.45,z)*cos(u),hypot(.45,z)*sin(u),z], -.75, .75],
-    ["Cone duplo", "x² + y² = z²", (u,z) => [Math.abs(z)*cos(u),Math.abs(z)*sin(u),z], -.85, .85],
-    ["Superfície gaussiana", "z = exp(−3(x² + y²))", (x,y) => exp(-3*(x*x+y*y))],
-    ["Ondulações concêntricas", "z = cos(6√(x² + y²))", (x,y) => cos(6*hypot(x,y))],
+    ["Hiperboloide de uma folha", "x^{2}+y^{2}-z^{2}=0{,}45^{2}", (u,z) => [hypot(.45,z)*cos(u),hypot(.45,z)*sin(u),z], -.75, .75],
+    ["Cone duplo", "x^{2}+y^{2}=z^{2}", (u,z) => [Math.abs(z)*cos(u),Math.abs(z)*sin(u),z], -.85, .85],
+    ["Superfície gaussiana", "z=e^{-3(x^{2}+y^{2})}", (x,y) => exp(-3*(x*x+y*y))],
+    ["Ondulações concêntricas", "z=\\cos(6\\sqrt{x^{2}+y^{2}})", (x,y) => cos(6*hypot(x,y))],
     ["Função personalizada"],
   ];
   const sequence = (size, min, max) => Array.from({length:size}, (_, i) => min+(max-min)*i/(size-1));

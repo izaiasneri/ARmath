@@ -35,7 +35,16 @@ function showMarker(marker) {
   const equation = marker === 9 ? state.geometry.latex : surface?.[1] ?? "";
   if (formula.dataset.equation !== equation) {
     formula.dataset.equation = equation;
-    formula.replaceChildren(marker === 9 ? renderFormula(equation) : equation);
+    if (!equation) formula.replaceChildren();
+    else if (window.katex) {
+      window.katex.render(equation, formula, {
+        displayMode: true,
+        output: "htmlAndMathml",
+        throwOnError: false,
+      });
+    } else {
+      formula.replaceChildren(renderFormula(equation));
+    }
   }
 }
 function showPreview(visible) {

@@ -108,6 +108,7 @@ p, #marker-id { color: var(--muted); }
 .surface-details > h2 { overflow-wrap: anywhere; }
 .surface-details:has(#formula[hidden]) { grid-template-columns: 1fr; }
 #formula { min-width: 0; padding-inline-start: .75rem; border-inline-start: 1px solid var(--line); font-size: 1.1rem; overflow: auto; overflow-wrap: anywhere; }
+#formula .katex-display { margin: .25rem 0; }
 .cut-header { flex-wrap: nowrap; }
 .cut-header label { white-space: nowrap; }
 #plane-settings .toggles { justify-content: center; }

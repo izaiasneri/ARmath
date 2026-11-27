@@ -1,6 +1,6 @@
 # ARMath Web
 
-Versão em HTML, CSS e JavaScript do ARMath 2.0, criado pelo Prof. Izaias Neri para o ensino de Cálculo III. A aplicação é estática e não depende de Node.js, Python ou bibliotecas externas.
+Versão em HTML, CSS e JavaScript do ARMath 2.0, criado pelo Prof. Izaias Neri para o ensino de Cálculo III. A aplicação é estática e não exige Node.js nem Python para executar. O KaTeX está incluído no projeto para renderizar as equações sem conexão com a internet.
 
 ## Abrir e usar
 
@@ -31,3 +31,5 @@ O cartão 9 aceita expressões em `x` e `y` no domínio [−5, 5] × [−5, 5]. 
 ## Implementação
 
 `static/vision.js` reconhece os cartões originais e projeta a geometria a partir dos seus cantos. `static/surfaces.js` calcula malhas, valida expressões e renderiza as superfícies e os cortes com Canvas. Os quadros da câmera são processados no próprio navegador.
+
+As equações dos cartões 0 a 9 são renderizadas em LaTeX pelo KaTeX 0.19.1, com saída HTML e MathML. A biblioteca, as fontes e a licença estão em `static/vendor/katex`.
