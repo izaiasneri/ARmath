@@ -1,6 +1,6 @@
 # ARMath 2.0
 
-O **ARMath** é um aplicativo de realidade aumentada para o ensino de **Cálculo III**, criado pelo Prof. Izaias Neri. A webcam reconhece um marcador ArUco e projeta uma superfície matemática sobre o vídeo. O nome e a equação da superfície aparecem abaixo da prévia.
+O **ARMath 2.0** é um aplicativo de realidade aumentada para o ensino de **Cálculo III**, criado pelo Prof. Izaias Neri. Ao reconhecer um cartão ArUco na webcam, o aplicativo projeta uma superfície tridimensional sobre o vídeo. Use os controles para girar a figura, relacioná-la à equação e observar sua interseção com planos.
 
 ## Como começar
 
@@ -15,17 +15,23 @@ Mostre um [marcador ArUco](marcadores) inteiro à webcam, com a margem branca vi
 
 Para gerar os arquivos PNG novamente, execute `python armath.py --gerar-marcadores marcadores`.
 
-## Telas e funcionalidades
+## Interface e recursos
 
 As imagens abaixo são capturas da interface do aplicativo com quadros simulados da câmera.
 
+À esquerda, a prévia mostra o vídeo e a superfície projetada. O **ID do cartão** ativo fica alinhado à direita, entre o vídeo e a área que mostra o nome e a equação da superfície. Enquanto não há um marcador reconhecido, o campo do ID exibe um traço. À direita, os painéis **Função personalizada**, **Visualização**, **Transformação** e **Plano de corte** ficam na mesma coluna. O status da webcam aparece à direita do título **Câmera**.
+
 ### Função personalizada
 
-No painel **Função personalizada**, escreva a expressão depois de **f(x,y) =** e clique em **Plotar** ou pressione **Enter**. Aponte a câmera para o marcador 9 para ver a superfície e a fórmula renderizada abaixo da imagem. A função inicial é `x+y`. Cada expressão válida substitui a anterior durante a sessão. Se houver um erro, a última função válida permanece.
+1. Digite a expressão à direita do rótulo matemático **f(x,y) =**.
+2. Clique em **Plotar** ou pressione **Enter**. Use o **marcador 9** para visualizar a superfície e a fórmula renderizada em LaTeX.
+3. Clique em **Limpar**, identificado pelo ícone de vassoura, para apagar o campo e voltar a digitar. O gráfico e a fórmula exibidos permanecem até a próxima plotagem válida.
 
-Exemplos: `exp(x+y)`, `x^2-y^2` e `sqrt(x^2+y^2)`. Use `*` para multiplicar. O marcador 9 usa o domínio ([-5,5] × [-5,5]). A malha é reduzida para a visualização, e a grade e os cortes indicam as coordenadas matemáticas.
+A expressão inicial é `x+y`. A função personalizada vale durante a sessão, e uma expressão inválida preserva a última superfície válida.
 
-![Função exponencial no marcador 9, com a equação formatada abaixo da câmera](docs/imagens/armath-2-funcao-personalizada.png)
+Experimente `exp(x+y)`, `x^2-y^2` ou `sqrt(x^2+y^2)`. Use `*` para multiplicar e `^` ou `**` para potências. O marcador 9 avalia a função em uma malha no domínio **[−5, 5] × [−5, 5]**. O aplicativo reduz a malha para a exibição, enquanto a grade e os cortes indicam as coordenadas matemáticas.
+
+![Marcador 9 com função exponencial, equação renderizada e botões Plotar e Limpar](docs/imagens/armath-2-funcao-personalizada.png)
 
 ### Visualização e transformação
 
@@ -48,7 +54,7 @@ Exemplos: `exp(x+y)`, `x^2-y^2` e `sqrt(x^2+y^2)`. Use `*` para multiplicar. O m
 
 ### Plano de corte
 
-Ative **Mostrar plano** e selecione **XY**, **XZ** ou **YZ**. As opções e o controle de **Deslocamento** ficam visíveis mesmo quando o plano está desligado. Quando ativo, o painel exibe a coordenada do corte no eixo perpendicular ao plano. A curva de interseção aparece em branco quando há corte.
+Ative **Mostrar plano** e selecione **XY**, **XZ** ou **YZ**. As opções e o controle de **Deslocamento** ficam visíveis e desativados enquanto o plano está desligado. Quando ativo, o painel exibe a coordenada do corte no eixo perpendicular, como **x = 0** para YZ. A interseção aparece em branco quando o plano corta a superfície.
 
 ![Corte da sela com o plano XY e a coordenada Z indicada no painel](docs/imagens/armath-2-escuro.png)
 
