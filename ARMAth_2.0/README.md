@@ -33,6 +33,8 @@ Experimente `exp(x+y)`, `x^2-y^2` ou `sqrt(x^2+y^2)`. Use `*` para multiplicar e
 
 ![Marcador 9 com função exponencial, equação renderizada e botões Plotar e Limpar](docs/imagens/armath-2-funcao-personalizada.png)
 
+![Campo vazio após clicar em Limpar, com a superfície e a equação ainda visíveis](docs/imagens/armath-2-limpar-funcao.png)
+
 ### Visualização e transformação
 
 | Controle | Como funciona |
@@ -68,13 +70,22 @@ Ative **Mostrar plano** e selecione **XY**, **XZ** ou **YZ**. As opções e o co
 
 | Estado | O que aparece |
 | --- | --- |
-| **Conectando** | A câmera está em inicialização. [Ver captura](docs/imagens/armath-2-conectando.png). |
-| **Ao vivo · Aguardando marcador** | A transmissão está ativa. Mostre um marcador com os quatro cantos visíveis. [Ver captura](docs/imagens/armath-2-aguardando-marcador.png). |
+| **Conectando** | A câmera está em inicialização. |
+| **Ao vivo · Aguardando marcador** | A transmissão está ativa. Mostre um marcador com os quatro cantos visíveis. |
 | **Ao vivo · Marcador reconhecido** | A superfície e a equação estão disponíveis para exploração. |
 | **Imagem congelada** | O quadro exibido fica fixo, com os ajustes de visualização disponíveis. |
 | **Indisponível** | Verifique a webcam e as permissões do Windows. Use o botão amarelo **Reiniciar câmera** para tentar novamente. |
 
+<details>
+<summary>Ver as telas de conexão, espera e recuperação</summary>
+
+![Tela durante a inicialização da câmera](docs/imagens/armath-2-conectando.png)
+
+![Câmera ativa aguardando um marcador, com o ID do cartão vazio](docs/imagens/armath-2-aguardando-marcador.png)
+
 ![Câmera indisponível com botão amarelo Reiniciar câmera](docs/imagens/armath-2-camera-indisponivel.png)
+
+</details>
 
 ### Temas claro e escuro
 
@@ -109,5 +120,7 @@ O seletor ao lado da marca ARMath indica o tema que será ativado. O aplicativo 
 | **Manual do usuário** | Abre o [manual em PDF](docs/Manual_ARMath.pdf), com instruções e marcadores para impressão. |
 | **GitHub do projeto** | Abre a [página do ARMath 2.0 no GitHub](https://github.com/izaiasneri/ARmath/tree/main/ARMAth_2.0). |
 | **Sobre o ARMath** | Exibe a versão e os créditos do aplicativo. |
+
+![Janela Como começar com instruções para usar a webcam e o marcador](docs/imagens/armath-2-como-comecar.png)
 
 ![Janela Sobre o ARMath 2.0](docs/imagens/armath-2-sobre.png)
