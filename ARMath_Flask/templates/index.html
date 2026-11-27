@@ -1,0 +1,162 @@
+{% from 'icons.html' import icon, sprite %}
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARMath · Cálculo III</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body>
+{{ sprite() }}
+<header class="top">
+  <a class="brand" href="/" aria-label="ARMath, início">AR<span>Math</span><small>CÁLCULO III</small></a>
+  <nav aria-label="Menu principal">
+    <details class="menu"><summary>{{ icon('folder') }}Arquivo</summary>
+      <div class="popover">
+        <button id="menu-save" type="button" disabled>{{ icon('save') }}Salvar foto <kbd>Ctrl+S</kbd></button>
+        <button id="menu-axes" type="button">{{ icon('axes') }}Eixos 3D <kbd>Ctrl+E</kbd></button>
+        <button id="menu-camera" type="button">{{ icon('camera') }}Selecionar câmera</button>
+        <button id="menu-restart" type="button">{{ icon('reset') }}Reiniciar câmera</button>
+        <button id="menu-exit" type="button">{{ icon('exit') }}Encerrar sessão <kbd>Ctrl+Q</kbd></button>
+      </div>
+    </details>
+    <details class="menu"><summary>{{ icon('help') }}Ajuda</summary>
+      <div class="popover">
+        <button data-dialog="quick-start" type="button">{{ icon('help') }}Como começar</button>
+        <button data-dialog="markers" type="button">{{ icon('marker') }}Marcadores ArUco</button>
+        <a href="{{ url_for('static', filename='Manual_ARMath.pdf') }}" target="_blank" rel="noopener">{{ icon('book') }}Manual do usuário</a>
+        <a href="{{ github }}" target="_blank" rel="noopener">{{ icon('link') }}GitHub do projeto</a>
+        <button data-dialog="about" type="button">{{ icon('info') }}Sobre o ARMath</button>
+      </div>
+    </details>
+    <button id="theme" type="button">{{ icon('sun') }}<span class="control-label">Modo claro</span></button>
+  </nav>
+</header>
+
+<main>
+  <section class="workspace" aria-labelledby="camera-title">
+    <div class="section-header">
+      <h1 id="camera-title">{{ icon('camera') }}Câmera</h1>
+      <span id="camera-status" data-state="idle" role="status">{{ icon('live') }}<span class="control-label">Câmera desligada</span></span>
+    </div>
+    <div class="preview">
+      <video id="video" autoplay muted playsinline hidden></video>
+      <canvas id="preview" aria-label="Quadro da câmera com a superfície de realidade aumentada" hidden></canvas>
+      <div id="placeholder">
+        <div class="viewfinder" aria-hidden="true"></div>
+        <h2>Explore superfícies em 3D</h2>
+        <p>Ative a câmera e mostre um marcador ArUco.</p>
+        <button class="primary" id="start" type="button">{{ icon('camera') }}<span class="control-label">Ativar câmera</span></button>
+      </div>
+    </div>
+    <p id="camera-error" class="error" role="alert" hidden></p>
+    <div class="toolbar">
+      <button id="freeze" type="button" disabled>{{ icon('pause') }}<span class="control-label">Congelar imagem</span></button>
+      <button id="save" type="button" disabled>{{ icon('save') }}Salvar foto</button>
+      <button type="button" data-dialog="markers">{{ icon('marker') }}Marcadores</button>
+      <button type="button" id="camera-select">{{ icon('camera') }}Selecionar câmera</button>
+      <button type="button" id="demo-camera" hidden>{{ icon('camera') }}Ativar câmera</button>
+    </div>
+    <div class="surface-card">
+      <span id="marker-id">ID do cartão · —</span>
+      <h2 id="surface-name">Aponte a câmera para um marcador</h2>
+      <img id="formula" hidden alt="">
+    </div>
+  </section>
+
+  <aside aria-label="Controles da superfície">
+    <section class="panel">
+      <h2>{{ icon('chart') }}Função personalizada</h2>
+      <p>Use o marcador 9 para visualizar sua função.</p>
+      <form id="function-form">
+        <label class="expression">f(x,y) = <input id="expression" maxlength="120" value="{{ expression }}" spellcheck="false" autocomplete="off"></label>
+        <div class="form-actions"><button class="primary" type="submit">{{ icon('chart') }}Plotar</button><button id="clear" type="button">{{ icon('erase') }}Limpar</button></div>
+        <p id="function-status" role="status">Domínio [−5, 5] × [−5, 5]</p>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>{{ icon('eye') }}Visualização</h2>
+      <div class="toggles">
+        <label><input type="checkbox" id="axes"> Eixos</label>
+        <label><input type="checkbox" id="box"> Caixa</label>
+        <label><input type="checkbox" id="grid"> Grade</label>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="section-header"><h2>{{ icon('axes') }}Transformação</h2><button id="reset" type="button">{{ icon('reset') }}Redefinir</button></div>
+      {% for key, label, low, high, step, initial, display in [
+        ('scale', 'Escala', 1, 3, 0.01, 1, '1×'),
+        ('x', 'Rotação X', -180, 180, 1, 0, '0°'),
+        ('y', 'Rotação Y', -180, 180, 1, 0, '0°'),
+        ('z', 'Rotação Z', -180, 180, 1, 0, '0°')
+      ] %}
+      <div class="slider">
+        <label for="{{ key }}">{{ label }}</label><output for="{{ key }}">{{ display }}</output>
+        <button type="button" data-reset="{{ key }}" aria-label="Redefinir {{ label }}">{{ icon('reset') }}</button>
+        <input id="{{ key }}" type="range" min="{{ low }}" max="{{ high }}" step="{{ step }}" value="{{ initial }}">
+      </div>
+      {% endfor %}
+    </section>
+    <section class="panel">
+      <h2>{{ icon('plane') }}Plano de corte</h2>
+      <label><input type="checkbox" id="plane-toggle"> Mostrar plano</label>
+      <fieldset id="plane-settings" disabled aria-label="Configuração do plano">
+        <div class="toggles">
+          <label><input type="radio" name="plane" value="xy" checked> XY</label>
+          <label><input type="radio" name="plane" value="xz"> XZ</label>
+          <label><input type="radio" name="plane" value="yz"> YZ</label>
+        </div>
+        <div class="slider">
+          <label for="offset">Deslocamento</label><output for="offset">0%</output>
+          <button type="button" data-reset="offset" aria-label="Redefinir deslocamento">{{ icon('reset') }}</button>
+          <input id="offset" type="range" min="-1" max="1" step=".01" value="0">
+        </div>
+      </fieldset>
+      <p id="cut">Ative o plano</p>
+    </section>
+  </aside>
+</main>
+
+<dialog id="quick-start">
+  <form method="dialog"><button aria-label="Fechar">{{ icon('close') }}</button></form>
+  <h2>{{ icon('help') }}Como começar</h2>
+  <ol>
+    <li>Ative a câmera e permita o acesso no navegador.</li>
+    <li>Imprima um marcador ou abra o PNG em outro dispositivo. Mostre o cartão inteiro, incluindo a margem branca.</li>
+    <li>Ajuste a rotação e explore os cortes. Use o cartão 9 para plotar a sua função.</li>
+  </ol>
+</dialog>
+<dialog id="markers">
+  <form method="dialog"><button aria-label="Fechar">{{ icon('close') }}</button></form>
+  <h2>{{ icon('marker') }}Marcadores ArUco</h2>
+  <p>Baixe um marcador ou use a demonstração para explorar a superfície sem webcam.</p>
+  <div class="marker-list">
+    {% for id, surface in surfaces.items() %}
+    {% set marker_url = url_for('static', filename='marcadores/marcador_' ~ id ~ '.png') %}
+    <article>
+      <a href="{{ marker_url }}" download aria-label="Baixar marcador {{ id }}">
+        <img src="{{ marker_url }}" alt="Marcador {{ id }}" loading="lazy" width="96" height="96">
+      </a>
+      <strong data-marker-name="{{ surface[0] }}">{{ id }} · {{ surface[0] }}</strong>
+      <button type="button" data-demo="{{ marker_url }}">{{ icon('play') }}Demonstrar</button>
+    </article>
+    {% endfor %}
+  </div>
+</dialog>
+<dialog id="devices">
+  <form method="dialog"><button aria-label="Fechar">{{ icon('close') }}</button></form>
+  <h2>{{ icon('camera') }}Selecionar câmera</h2>
+  <p>Permita o acesso à câmera para ver os nomes dos dispositivos.</p>
+  <label>Dispositivo <select id="device"><option value="">Câmera padrão</option></select></label>
+  <button id="use-device" class="primary" type="button">{{ icon('camera') }}Usar câmera</button>
+</dialog>
+<dialog id="about">
+  <form method="dialog"><button aria-label="Fechar">{{ icon('close') }}</button></form>
+  <h2>{{ icon('info') }}Sobre o ARMath</h2>
+  <p>ARMath 2.0 · Edição web em Flask</p>
+  <p>Aplicativo de realidade aumentada para o ensino de Cálculo III, criado pelo Prof. Izaias Neri.</p>
+</dialog>
+</body>
+</html>

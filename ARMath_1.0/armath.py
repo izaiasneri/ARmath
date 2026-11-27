@@ -89,7 +89,7 @@ SURFACES = {
         r"x^2+y^2=z^2",
         partial(angular_mesh, double_cone, -0.85, 0.85),
     ),
-    7: (
+    9: (
         "Superfície gaussiana",
         r"z=e^{-3(x^2+y^2)}",
         partial(surface_mesh, lambda x, y: np.exp(-3 * (x**2 + y**2))),

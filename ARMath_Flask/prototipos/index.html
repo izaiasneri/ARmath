@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR" data-design="cobalto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARMath · Propostas de identidade visual</title>
+<link rel="stylesheet" href="modelos.css">
+</head>
+<body>
+<svg class="icon-library" aria-hidden="true" focusable="false" width="0" height="0" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-camera" viewBox="0 0 24 24"><path d="M14 8h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2l2-3h4z"/><circle cx="11" cy="13" r="3"/></symbol>
+  <symbol id="icon-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="icon-chart" viewBox="0 0 24 24"><path d="M3 3v17h18M6 15l4-5 4 2 5-7"/></symbol>
+  <symbol id="icon-plane" viewBox="0 0 24 24"><path d="m3 15 7-8h11l-7 8H3Zm9-12v4m0 4v10m-6-9h11"/></symbol>
+  <symbol id="icon-live" viewBox="0 0 24 24"><path d="M8 8a6 6 0 0 0 0 8m8-8a6 6 0 0 1 0 8M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/><circle cx="12" cy="12" r="1.5"/></symbol>
+  <symbol id="icon-save" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></symbol>
+  <symbol id="icon-axes" viewBox="0 0 24 24"><path d="M8 16V3m-3 3 3-3 3 3M8 16h13m-3-3 3 3-3 3M8 16l-5 5m0-4v4h4"/></symbol>
+  <symbol id="icon-reset" viewBox="0 0 24 24"><path d="M4 11a8 8 0 1 1 2 6m-2-6V5m0 6h6"/></symbol>
+  <symbol id="icon-marker" viewBox="0 0 24 24"><path d="M3 9V3h6m6 0h6v6m0 6v6h-6m-6 0H3v-6m5-7h3v3H8zm5 5h3v3h-3zm0-5h3m-8 8h3"/></symbol>
+  <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M9 5H6v14h3zm9 0h-3v14h3z"/></symbol>
+  <symbol id="icon-book" viewBox="0 0 24 24"><path d="M12 6C9 4 6 4 3 5v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Zm0 0v14"/></symbol>
+</svg>
+<header class="gallery">
+  <div>
+    <p>ARMath · Cálculo III</p>
+    <h1>Propostas de identidade visual</h1>
+  </div>
+  <nav aria-label="Escolher proposta">
+    <button type="button" data-choice="cobalto" aria-pressed="true"><i></i>Cobalto</button>
+    <button type="button" data-choice="violeta" aria-pressed="false"><i></i>Violeta</button>
+    <button type="button" data-choice="ambar" aria-pressed="false"><i></i>Âmbar</button>
+  </nav>
+</header>
+<div class="preview-caption">
+  <p id="description" aria-live="polite">Azul elétrico e azul-marinho. Câmera e comandos lado a lado.</p>
+  <span>Prévia com quadro simulado</span>
+</div>
+<main class="app">
+  <header class="app-bar">
+    <div class="wordmark"><span>AR<b>Math</b></span><small>Cálculo III</small></div>
+    <div class="app-links">
+      <a href="../static/Manual_ARMath.pdf" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-book"/></svg>Manual</a>
+      <a href="../static/marcadores/marcador_1.png" download><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-marker"/></svg>Marcador</a>
+    </div>
+  </header>
+  <section class="camera" aria-labelledby="camera-title">
+    <div class="camera-heading">
+      <h2 id="camera-title"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-camera"/></svg>Câmera</h2>
+      <span class="live"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-live"/></svg>Ao vivo</span>
+    </div>
+    <div class="frame">
+      <img id="frame-image" src="cobalto.webp" width="960" height="600" alt="Paraboloide hiperbólico projetado sobre um marcador ArUco em um quadro simulado">
+      <span>ArUco 01</span>
+    </div>
+    <div class="figure-caption">
+      <div><small>Marcador 01</small><h3>Paraboloide hiperbólico</h3></div>
+      <div class="equation">z = 2x² − 2y²</div>
+    </div>
+    <div class="actions">
+      <button type="button" disabled><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-pause"/></svg>Congelar imagem</button>
+      <a id="download" href="cobalto.webp" download><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-save"/></svg>Salvar prévia</a>
+    </div>
+  </section>
+  <aside aria-label="Controles da superfície">
+    <section class="card function">
+      <h2><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-chart"/></svg>Função personalizada</h2>
+      <p>Use o marcador 9 para visualizar sua função.</p>
+      <label class="field">f(x,y) = <input value="x^2 - y^2" aria-label="Expressão matemática" spellcheck="false"></label>
+      <button type="button" class="primary" disabled><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-chart"/></svg>Plotar</button>
+    </section>
+    <section class="card views">
+      <h2><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-eye"/></svg>Visualização</h2>
+      <div class="choices">
+        <label><input type="checkbox"> Eixos</label>
+        <label><input type="checkbox"> Caixa</label>
+        <label><input type="checkbox"> Grade</label>
+      </div>
+    </section>
+    <section class="card transform">
+      <div class="card-heading">
+        <h2><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-axes"/></svg>Transformação</h2>
+        <button id="reset" type="button" aria-label="Redefinir transformação"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-reset"/></svg></button>
+      </div>
+      <div class="range"><label for="scale">Escala</label><output for="scale">1,5×</output><input id="scale" type="range" min="1" max="3" step=".1" value="1.5" data-unit="×"></div>
+      <div class="range"><label for="x">Rotação X</label><output for="x">10°</output><input id="x" type="range" min="-180" max="180" value="10" data-unit="°"></div>
+      <div class="range"><label for="y">Rotação Y</label><output for="y">0°</output><input id="y" type="range" min="-180" max="180" value="0" data-unit="°"></div>
+      <div class="range"><label for="z">Rotação Z</label><output for="z">−12°</output><input id="z" type="range" min="-180" max="180" value="-12" data-unit="°"></div>
+    </section>
+    <section class="card cutting">
+      <h2><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-plane"/></svg>Plano de corte</h2>
+      <label><input id="plane" type="checkbox"> Mostrar plano</label>
+      <fieldset class="choices" aria-label="Orientação do plano" disabled>
+        <label><input type="radio" name="orientation" checked> XY</label>
+        <label><input type="radio" name="orientation"> XZ</label>
+        <label><input type="radio" name="orientation"> YZ</label>
+      </fieldset>
+    </section>
+  </aside>
+</main>
+<script>
+const descriptions = {
+  cobalto: 'Azul elétrico e azul-marinho. Câmera e comandos lado a lado.',
+  violeta: 'Violeta e lavanda sobre fundo claro. Controles à esquerda e equação em destaque.',
+  ambar: 'Âmbar e grafite. Câmera acima e controles em uma faixa inferior.',
+};
+const buttons = document.querySelectorAll('[data-choice]');
+function selectDesign(design) {
+  if (!Object.hasOwn(descriptions, design)) design = 'cobalto';
+  document.documentElement.dataset.design = design;
+  for (const button of buttons) button.setAttribute('aria-pressed', button.dataset.choice === design);
+  document.querySelector('#description').textContent = descriptions[design];
+  document.querySelector('#frame-image').src = design + '.webp';
+  document.querySelector('#download').href = design + '.webp';
+}
+for (const button of buttons) button.addEventListener('click', () => {
+  location.hash = button.dataset.choice;
+  selectDesign(button.dataset.choice);
+});
+addEventListener('hashchange', () => selectDesign(location.hash.slice(1)));
+selectDesign(location.hash.slice(1));
+
+const sliders = document.querySelectorAll('input[type=range]');
+function updateValue(slider) {
+  document.querySelector('output[for=' + slider.id + ']').value =
+    Number(slider.value).toLocaleString('pt-BR') + slider.dataset.unit;
+}
+for (const slider of sliders) slider.addEventListener('input', () => updateValue(slider));
+document.querySelector('#reset').addEventListener('click', () => {
+  for (const slider of sliders) {
+    slider.value = slider.id === 'scale' ? 1 : 0;
+    updateValue(slider);
+  }
+});
+document.querySelector('#plane').addEventListener('change', (event) => {
+  document.querySelector('.cutting fieldset').disabled = !event.target.checked;
+});
+</script>
+</body>
+</html>

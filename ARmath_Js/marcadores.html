@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Acervo interativo · ARMath</title>
+  <link rel="icon" type="image/svg+xml" href="./static/favicon.svg">
+  <link rel="stylesheet" href="./static/style.css">
+  <link rel="stylesheet" href="./static/marcadores-modelos.css">
+  <script defer src="./static/vision.js"></script>
+  <script defer src="./static/surfaces.js"></script>
+  <script defer src="./static/markers.js"></script>
+  <script defer src="./static/marcadores-modelos.js"></script>
+</head>
+<body class="markers-page" data-marker-model="laboratorio">
+  <header class="top">
+    <a class="brand" href="./index.html">AR<span>Math</span><small>CÁLCULO III</small></a>
+    <nav aria-label="Navegação principal"><a class="model-return" href="./index.html">Abrir o ARMath</a></nav>
+  </header>
+  <main class="markers-main">
+    <section class="panel model-intro">
+      <div class="intro-copy">
+        <h1>Acervo interativo</h1>
+        <p>O ARMath, criado pelo Prof. Izaias Neri para o ensino de Cálculo III, usa a câmera para reconhecer o ID do cartão e sobrepor uma superfície 3D. Os cartões 0 a 8 exibem superfícies predefinidas e o cartão 9 exibe a função que você digitar. Mostre o cartão inteiro à câmera, com a margem branca visível.</p>
+        <nav class="model-jumps" aria-label="Nesta página"><a href="#cards-title">Cartões para imprimir</a><a href="#examples-title">Ver superfícies</a></nav>
+        <details open>
+          <summary>Como funcionam os marcadores ArUco</summary>
+          <p>ArUco é uma biblioteca de visão computacional do grupo AVA da Universidade de Córdoba. Seus marcadores quadrados usam padrões em preto e branco que permitem reconhecer o ID e estimar a posição e a orientação do cartão em relação à câmera.</p>
+          <p><a href="https://www.uco.es/investiga/grupos/ava/portfolio/aruco/" target="_blank" rel="noopener">Página oficial do ArUco</a></p>
+        </details>
+      </div>
+      <figure class="intro-example">
+        <img alt="" width="400" height="300">
+        <figcaption>Toro · marcador 4</figcaption>
+      </figure>
+    </section>
+    <section aria-labelledby="cards-title">
+      <h2 id="cards-title">Marcadores de 0 a 9</h2>
+      <div class="marker-filter"><label for="marker-search">Buscar cartão</label><input type="search" id="marker-search" placeholder="Ex.: 4 ou toro"><p id="marker-count" role="status"></p></div>
+      <p id="print-status" class="error" role="status" hidden></p>
+      <div class="marker-list"></div>
+    </section>
+    <section class="marker-examples" aria-labelledby="examples-title">
+      <h2 id="examples-title">Veja os exemplos</h2>
+      <table aria-labelledby="examples-title">
+        <thead>
+          <tr><th scope="col">Marcador</th><th scope="col">Superfície projetada</th></tr>
+        </thead>
+        <tbody id="marker-examples"></tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

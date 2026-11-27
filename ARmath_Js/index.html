@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARMath · Cálculo III</title>
+  <link rel="icon" type="image/svg+xml" href="./static/favicon.svg">
+  <link rel="stylesheet" href="./static/style.css">
+  <script defer src="./static/vision.js"></script>
+  <script defer src="./static/surfaces.js"></script>
+  <script defer src="./static/formula.js"></script>
+  <script defer src="./static/app.js"></script>
+</head>
+<body class="armath-app">
+<svg class="icon-library" aria-hidden="true" focusable="false" width="0" height="0" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-camera" viewBox="0 0 24 24"><path d="M14 8h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2l2-3h4z"/><circle cx="11" cy="13" r="3"/></symbol>
+  <symbol id="icon-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="icon-chart" viewBox="0 0 24 24"><path d="M3 3v17h18M6 15l4-5 4 2 5-7"/></symbol>
+  <symbol id="icon-plane" viewBox="0 0 24 24"><path d="m3 15 7-8h11l-7 8H3Zm9-12v4m0 4v10m-6-9h11"/></symbol>
+  <symbol id="icon-live" viewBox="0 0 24 24"><path d="M8 8a6 6 0 0 0 0 8m8-8a6 6 0 0 1 0 8M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/><circle cx="12" cy="12" r="1.5"/></symbol>
+  <symbol id="icon-save" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></symbol>
+  <symbol id="icon-axes" viewBox="0 0 24 24"><path d="M8 16V3m-3 3 3-3 3 3M8 16h13m-3-3 3 3-3 3M8 16l-5 5m0-4v4h4"/></symbol>
+  <symbol id="icon-reset" viewBox="0 0 24 24"><path d="M4 11a8 8 0 1 1 2 6m-2-6V5m0 6h6"/></symbol>
+  <symbol id="icon-exit" viewBox="0 0 24 24"><path d="M11 4H4v16h7m-2-8h12m-4-4 4 4-4 4"/></symbol>
+  <symbol id="icon-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 2m0 3h.01"/></symbol>
+  <symbol id="icon-marker" viewBox="0 0 24 24"><path d="M3 9V3h6m6 0h6v6m0 6v6h-6m-6 0H3v-6m5-7h3v3H8zm5 5h3v3h-3zm0-5h3m-8 8h3"/></symbol>
+  <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></symbol>
+  <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"/></symbol>
+  <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20.5 15.3A9 9 0 0 1 8.7 3.5a9 9 0 1 0 11.8 11.8Z"/></symbol>
+  <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M9 5H6v14h3zm9 0h-3v14h3z"/></symbol>
+  <symbol id="icon-play" viewBox="0 0 24 24"><path d="m8 5 12 7-12 7z"/></symbol>
+  <symbol id="icon-erase" viewBox="0 0 24 24"><path d="m9 20-5-5 9-10a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3l-8 8H9Zm0-10 7 7m-4 3h9"/></symbol>
+  <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12m0-12L6 18"/></symbol>
+  <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z"/></symbol>
+  <symbol id="icon-book" viewBox="0 0 24 24"><path d="M12 6C9 4 6 4 3 5v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Zm0 0v14"/></symbol>
+  <symbol id="icon-link" viewBox="0 0 24 24"><path d="M13 4h7v7m0-7-9 9m8 1v6H4V5h6"/></symbol>
+</svg>
+<header class="top">
+  <a class="brand" href="./" aria-label="ARMath, início">AR<span>Math</span><small>CÁLCULO III</small></a>
+  <nav aria-label="Menu principal">
+    <details class="menu"><summary><svg class="icon" aria-hidden="true"><use href="#icon-folder"></use></svg>Arquivo</summary>
+      <div class="popover">
+        <button id="menu-save" type="button" disabled><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg>Salvar foto <kbd>Ctrl+S</kbd></button>
+        <button id="menu-axes" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-axes"></use></svg>Eixos 3D <kbd>Ctrl+E</kbd></button>
+        <button id="menu-camera" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-camera"></use></svg>Selecionar câmera</button>
+        <button id="menu-restart" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg>Reiniciar câmera</button>
+        <button id="menu-exit" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-exit"></use></svg>Encerrar sessão <kbd>Ctrl+Q</kbd></button>
+      </div>
+    </details>
+    <details class="menu"><summary><svg class="icon" aria-hidden="true"><use href="#icon-help"></use></svg>Ajuda</summary>
+      <div class="popover">
+        <button data-dialog="quick-start" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-help"></use></svg>Como começar</button>
+        <a class="marker-link" href="./marcadores.html" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#icon-marker"></use></svg>Marcadores ArUco</a>
+        <a href="./static/Manual_ARMath.pdf" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#icon-book"></use></svg>Manual do usuário</a>
+        <a href="https://github.com/izaiasneri/ARmath/tree/main/ARMAth_2.0" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#icon-link"></use></svg>GitHub do projeto</a>
+        <button data-dialog="about" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-info"></use></svg>Sobre o ARMath</button>
+      </div>
+    </details>
+    <button id="theme" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-sun"></use></svg><span class="control-label">Modo claro</span></button>
+  </nav>
+</header>
+
+<main>
+  <section class="workspace" aria-labelledby="camera-title">
+    <div class="section-header">
+      <h1 id="camera-title"><svg class="icon" aria-hidden="true"><use href="#icon-camera"></use></svg>Câmera</h1>
+      <span id="camera-status" data-state="idle" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-live"></use></svg><span class="control-label">Câmera desligada</span></span>
+    </div>
+    <div class="camera-stage">
+      <div class="preview">
+        <video id="video" autoplay muted playsinline hidden></video>
+        <canvas id="preview" aria-label="Quadro da câmera com a superfície de realidade aumentada" hidden></canvas>
+        <div id="placeholder">
+          <div class="viewfinder" aria-hidden="true"></div>
+          <h2>Explore superfícies em 3D</h2>
+          <p>Ative a câmera e mostre um marcador ArUco.</p>
+          <button class="primary" id="start" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-camera"></use></svg><span class="control-label">Ativar câmera</span></button>
+        </div>
+      </div>
+    </div>
+    <p id="camera-error" class="error" role="alert" hidden></p>
+    <div class="toolbar">
+      <button id="freeze" type="button" disabled><svg class="icon" aria-hidden="true"><use href="#icon-pause"></use></svg><span class="control-label">Congelar imagem</span></button>
+      <button id="save" type="button" disabled><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg>Salvar foto</button>
+      <a class="marker-link" href="./marcadores.html" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#icon-marker"></use></svg>Marcadores</a>
+      <button type="button" id="camera-select"><svg class="icon" aria-hidden="true"><use href="#icon-camera"></use></svg>Selecionar câmera</button>
+      <button type="button" id="demo-camera" hidden><svg class="icon" aria-hidden="true"><use href="#icon-camera"></use></svg>Ativar câmera</button>
+    </div>
+    <div class="surface-card">
+      <span id="marker-id">ID do cartão · —</span>
+      <div class="surface-details">
+        <h2 id="surface-name">Aponte a câmera para um marcador</h2>
+        <div id="formula" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <aside aria-label="Controles da superfície">
+    <section class="panel">
+      <h2><svg class="icon" aria-hidden="true"><use href="#icon-chart"></use></svg>Função personalizada</h2>
+      <p>Use o marcador 9 para visualizar sua função.</p>
+      <form id="function-form">
+        <label class="expression">f(x,y) = <input id="expression" maxlength="120" value="x+y" spellcheck="false" autocomplete="off"></label>
+        <div class="form-actions"><button class="primary" type="submit"><svg class="icon" aria-hidden="true"><use href="#icon-chart"></use></svg>Plotar</button><button id="clear" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-erase"></use></svg>Limpar</button></div>
+        <p id="function-status" role="status">Domínio [−5, 5] × [−5, 5]</p>
+      </form>
+    </section>
+    <section class="panel">
+      <h2><svg class="icon" aria-hidden="true"><use href="#icon-eye"></use></svg>Visualização</h2>
+      <div class="toggles">
+        <label><input type="checkbox" id="axes"> Eixos</label>
+        <label><input type="checkbox" id="box"> Caixa</label>
+        <label><input type="checkbox" id="grid"> Grade</label>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="section-header"><h2><svg class="icon" aria-hidden="true"><use href="#icon-axes"></use></svg>Transformação</h2><button id="reset" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg>Redefinir</button></div>
+      <div class="slider"><label for="scale">Escala</label><output for="scale">1×</output><button type="button" data-reset="scale" aria-label="Redefinir Escala"><svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg></button><input id="scale" type="range" min="1" max="3" step="0.01" value="1"></div>
+      <div class="slider"><label for="x">Rotação X</label><output for="x">0°</output><button type="button" data-reset="x" aria-label="Redefinir Rotação X"><svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg></button><input id="x" type="range" min="-180" max="180" step="1" value="0"></div>
+      <div class="slider"><label for="y">Rotação Y</label><output for="y">0°</output><button type="button" data-reset="y" aria-label="Redefinir Rotação Y"><svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg></button><input id="y" type="range" min="-180" max="180" step="1" value="0"></div>
+      <div class="slider"><label for="z">Rotação Z</label><output for="z">0°</output><button type="button" data-reset="z" aria-label="Redefinir Rotação Z"><svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg></button><input id="z" type="range" min="-180" max="180" step="1" value="0"></div>
+    </section>
+    <section class="panel">
+      <div class="section-header cut-header">
+        <h2><svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg>Plano de corte</h2>
+        <label><input type="checkbox" id="plane-toggle"> Mostrar plano</label>
+      </div>
+      <fieldset id="plane-settings" disabled aria-label="Configuração do plano">
+        <div class="toggles">
+          <label><input type="radio" name="plane" value="xy" checked> XY</label>
+          <label><input type="radio" name="plane" value="xz"> XZ</label>
+          <label><input type="radio" name="plane" value="yz"> YZ</label>
+        </div>
+        <div class="slider">
+          <label for="offset">Deslocamento</label><output for="offset">0%</output>
+          <button type="button" data-reset="offset" aria-label="Redefinir deslocamento"><svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg></button>
+          <input id="offset" type="range" min="-1" max="1" step=".01" value="0">
+        </div>
+      </fieldset>
+      <p id="cut">Ative o plano</p>
+    </section>
+  </aside>
+</main>
+
+<dialog id="quick-start">
+  <form method="dialog"><button aria-label="Fechar"><svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></form>
+  <h2><svg class="icon" aria-hidden="true"><use href="#icon-help"></use></svg>Como começar</h2>
+  <ol>
+    <li>Ative a câmera e permita o acesso no navegador.</li>
+    <li>Imprima um marcador ou abra o PNG em outro dispositivo. Mostre o cartão inteiro, incluindo a margem branca.</li>
+    <li>Ajuste a rotação e explore os cortes. Use o cartão 9 para plotar a sua função.</li>
+  </ol>
+</dialog>
+<dialog id="devices">
+  <form method="dialog"><button aria-label="Fechar"><svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></form>
+  <h2><svg class="icon" aria-hidden="true"><use href="#icon-camera"></use></svg>Selecionar câmera</h2>
+  <p>Permita o acesso à câmera para ver os nomes dos dispositivos.</p>
+  <label>Dispositivo <select id="device"><option value="">Câmera padrão</option></select></label>
+  <button id="use-device" class="primary" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-camera"></use></svg>Usar câmera</button>
+</dialog>
+<dialog id="about" aria-labelledby="about-title">
+  <img class="about-logo" src="./static/armath-logo.png" alt="">
+  <h2 id="about-title">ARMath 2.0</h2>
+  <p>O ARMath usa realidade aumentada para explorar superfícies matemáticas em 3D. Aponte a câmera para um marcador para ver a superfície sobre o vídeo e sua equação logo abaixo. Use os deslizadores para ajustar a escala e girar a figura nos eixos X, Y e Z.</p>
+  <p>Criado por Izaias Neri<br><a href="mailto:izaiasneri@gmail.com">izaiasneri@gmail.com</a></p>
+  <form method="dialog"><button class="primary">OK</button></form>
+</dialog>
+</body>
+</html>
