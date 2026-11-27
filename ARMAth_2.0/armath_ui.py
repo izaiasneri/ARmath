@@ -27,7 +27,7 @@ from armath import (
 CAMERA_BORDER = 3
 CAMERA_RADIUS = 14
 SIDE_PADDING = 16
-SIDEBAR_WIDTH = 332
+SIDEBAR_WIDTH = 420
 COLUMN_SPACING = 12
 
 
@@ -219,6 +219,8 @@ def menu_icon(kind, color):
         "play": (((10, 6), (26, 16), (10, 26), (10, 6)),),
         "axes": (((15, 6), (15, 20), (26, 24)), ((15, 20), (5, 26))),
         "plot": (((5, 5), (5, 26), (28, 26)), ((9, 21), (15, 14), (19, 17), (27, 7))),
+        "broom": (((26, 4), (16, 16)), ((13, 14), (20, 19), (14, 28), (4, 22), (13, 14)),
+                  ((8, 24), (13, 18)), ((11, 26), (16, 20))),
         "cut": (((4, 19), (13, 12), (28, 15), (19, 22), (4, 19)),
                 ((16, 5), (16, 16)), ((16, 20), (16, 27))),
         "transform": (((10, 21), (6, 9), (20, 5), (24, 16)),
@@ -313,20 +315,20 @@ def panel_divider(vertical=False):
     return divider
 
 
-def render_formula_png(expression, color):
+def render_formula_png(expression, color, font_size=22, padding=0.12):
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     from matplotlib.figure import Figure
 
     figure = Figure()
     FigureCanvasAgg(figure)
     figure.text(
-        0.5, 0.5, f"${expression}$", color=color, fontsize=22,
+        0.5, 0.5, f"${expression}$", color=color, fontsize=font_size,
         math_fontfamily="stix", ha="center", va="center",
     )
     buffer = BytesIO()
     figure.savefig(
         buffer, dpi=144, format="png", transparent=True,
-        bbox_inches="tight", pad_inches=0.12,
+        bbox_inches="tight", pad_inches=padding,
     )
     return buffer.getvalue()
 
@@ -607,6 +609,9 @@ class ARMathWindow(QMainWindow):
         camera_column.addWidget(camera_header)
         camera_column.addWidget(camera_slot, alignment=Qt.AlignmentFlag.AlignHCenter)
         camera_column.addStretch()
+        self.marker_id_label = QLabel("ID do cartão: —")
+        camera_column.addWidget(self.marker_id_label)
+        self.marker_id_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         camera_column.addWidget(equation_panel)
         columns.addWidget(camera_panel, 1)
         sidebar = QWidget()
@@ -627,9 +632,12 @@ class ARMathWindow(QMainWindow):
         self.function_input.setAccessibleName("Função de x e y")
         self.function_input.setToolTip("Use x, y, pi, e, +, -, *, /, ^, sin, cos, tan, exp, sqrt, log e abs.")
         function_row = QHBoxLayout()
-        function_label = QLabel("f(x,y) =")
-        function_label.setBuddy(self.function_input)
-        function_row.addWidget(function_label)
+        function_row.setSpacing(10)
+        self.function_label = QLabel()
+        self.function_label.setAccessibleName("f(x,y) =")
+        self.function_label.setBuddy(self.function_input)
+        self.update_function_label()
+        function_row.addWidget(self.function_label)
         function_row.addWidget(self.function_input, 1)
         self.plot_button = QPushButton(menu_icon("plot", self.theme["accent_text"]), "Plotar")
         self.plot_button.setObjectName("plotFunction")
@@ -637,6 +645,9 @@ class ARMathWindow(QMainWindow):
         self.plot_button.clicked.connect(self.apply_custom_function)
         self.function_input.returnPressed.connect(self.apply_custom_function)
         function_row.addWidget(self.plot_button)
+        self.clear_function_button = QPushButton(menu_icon("broom", self.theme["text"]), "Limpar")
+        self.clear_function_button.clicked.connect(self.clear_function_input)
+        function_row.addWidget(self.clear_function_button)
         custom_layout.addLayout(function_row)
         sidebar_layout.addWidget(custom_panel)
         sidebar_layout.addStretch()
@@ -658,13 +669,21 @@ class ARMathWindow(QMainWindow):
         self.live_icon.setPixmap(menu_icon("broadcast", self.theme["accent_text"]).pixmap(QSize(16, 16)))
         self.setStyleSheet(THEME_STYLE.substitute(self.theme))
         self.update_menu_icons()
+        self.update_function_label()
         self.plot_button.setIcon(menu_icon("plot", self.theme["accent_text"]))
+        self.clear_function_button.setIcon(menu_icon("broom", self.theme["text"]))
         for label, make_icon in self.heading_icons.items():
             label.setPixmap(make_icon(self.theme["text"]).pixmap(QSize(16, 16)))
         icon = reset_icon(self.theme["accent"])
         for button in self.findChildren(QPushButton, "resetSlider"):
             button.setIcon(icon)
         self.show_formula_image(self.active_marker)
+
+    def update_function_label(self):
+        pixmap = QPixmap()
+        pixmap.loadFromData(render_formula_png("f(x,y)=", self.theme["text"], font_size=16, padding=0))
+        pixmap.setDevicePixelRatio(2)
+        self.function_label.setPixmap(pixmap)
 
     def add_heading(self, layout, title, make_icon):
         label = QLabel()
@@ -772,6 +791,10 @@ class ARMathWindow(QMainWindow):
         self.freeze_button.setChecked(self.frozen_frame is not None)
         self.freeze_button.setText("Retomar vídeo" if self.frozen_frame is not None else "Congelar imagem")
         self.render_frame()
+
+    def clear_function_input(self):
+        self.function_input.clear()
+        self.function_input.setFocus()
 
     def apply_custom_function(self):
         try:
@@ -915,6 +938,8 @@ class ARMathWindow(QMainWindow):
         if marker_id == self.active_marker:
             return
         self.active_marker = marker_id
+        displayed_id = "—" if marker_id is None else str(marker_id)
+        self.marker_id_label.setText(f"ID do cartão: {displayed_id}")
         if marker_id is None:
             self.surface_name.setText("Aponte a câmera para um marcador")
             self.formula.clear()

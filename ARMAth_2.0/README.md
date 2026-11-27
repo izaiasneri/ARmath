@@ -23,7 +23,7 @@ As imagens abaixo são capturas da interface do aplicativo com quadros simulados
 
 No painel **Função personalizada**, escreva a expressão depois de **f(x,y) =** e clique em **Plotar** ou pressione **Enter**. Aponte a câmera para o marcador 9 para ver a superfície e a fórmula renderizada abaixo da imagem. A função inicial é `x+y`. Cada expressão válida substitui a anterior durante a sessão. Se houver um erro, a última função válida permanece.
 
-Exemplos: `exp(x+y)`, `x^2-y^2` e `sqrt(x^2+y^2)`. Use `*` para multiplicar. O aplicativo avalia a função em uma malha no domínio ([-1,1] × [-1,1]).
+Exemplos: `exp(x+y)`, `x^2-y^2` e `sqrt(x^2+y^2)`. Use `*` para multiplicar. O marcador 9 usa o domínio ([-5,5] × [-5,5]). A malha é reduzida para a visualização, e a grade e os cortes indicam as coordenadas matemáticas.
 
 ![Função exponencial no marcador 9, com a equação formatada abaixo da câmera](docs/imagens/armath-2-funcao-personalizada.png)
 

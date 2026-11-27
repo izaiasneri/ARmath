@@ -71,6 +71,7 @@ def double_cone(u, z):
 
 CUSTOM_MARKER_ID = 9
 DEFAULT_EXPRESSION = "x+y"
+CUSTOM_DOMAIN_LIMIT = 5
 OPERATORS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
              ast.Div: np.divide, ast.Pow: np.power, ast.UAdd: operator.pos, ast.USub: operator.neg}
 FUNCTIONS = {name: getattr(np, name) for name in ("sin", "cos", "tan", "exp", "sqrt", "log", "abs")}
@@ -92,20 +93,25 @@ def evaluate_expression(node, variables):
     raise ValueError("Use x, y e as operações permitidas.")
 
 
-def build_custom_mesh(expression):
+def build_custom_geometry(expression):
     if not expression or len(expression) > 120:
         raise ValueError("Digite uma expressão de até 120 caracteres.")
     tree = ast.parse(expression.replace("^", "**"), mode="eval")
 
-    def function(x, y):
-        values = evaluate_expression(tree.body, {"x": x, "y": y, "pi": np.pi, "e": np.e})
-        return np.broadcast_to(values, x.shape)
-
+    coordinates = np.linspace(-CUSTOM_DOMAIN_LIMIT, CUSTOM_DOMAIN_LIMIT, 25)
+    x, y = np.meshgrid(coordinates, coordinates)
     with np.errstate(divide="raise", invalid="raise", over="raise"):
-        mesh = surface_mesh(function)
-    if not np.isfinite(mesh).all():
+        z = np.broadcast_to(evaluate_expression(tree.body, {"x": x, "y": y, "pi": np.pi, "e": np.e}), x.shape)
+    if not np.isfinite(z).all():
         raise ValueError("A função deve ter valores reais e finitos na malha.")
-    return mesh
+    horizontal_unit = HALF / CUSTOM_DOMAIN_LIMIT
+    vertical_unit = HALF * EXPLICIT_Z_SCALE / max(CUSTOM_DOMAIN_LIMIT, np.abs(z).max())
+    units = np.array((horizontal_unit, horizontal_unit, vertical_unit))
+    return np.stack((x, y, z), axis=-1) * units, units
+
+
+def build_custom_mesh(expression):
+    return build_custom_geometry(expression)[0]
 
 
 SURFACES = {
@@ -145,17 +151,20 @@ SURFACES = {
 }
 
 
+MESHES = {marker_id: build_mesh() for marker_id, (_, _, build_mesh) in SURFACES.items()}
 SURFACES[CUSTOM_MARKER_ID] = (
     "Função personalizada", f"z={DEFAULT_EXPRESSION}", partial(build_custom_mesh, DEFAULT_EXPRESSION),
 )
-MESHES = {marker_id: build_mesh() for marker_id, (_, _, build_mesh) in SURFACES.items()}
+MESHES[CUSTOM_MARKER_ID], custom_units = build_custom_geometry(DEFAULT_EXPRESSION)
 
 
 def set_custom_expression(expression):
-    mesh = build_custom_mesh(expression)
+    global custom_units
+    mesh, units = build_custom_geometry(expression)
     SURFACES[CUSTOM_MARKER_ID] = ("Função personalizada", f"z={expression}",
                                   partial(build_custom_mesh, expression))
     MESHES[CUSTOM_MARKER_ID] = mesh
+    custom_units = units
 
 
 def custom_formula_latex(expression):
@@ -195,8 +204,10 @@ def custom_formula_latex(expression):
 
 
 def coordinate_units(marker_id, scale):
+    if marker_id == CUSTOM_MARKER_ID:
+        return custom_units * scale
     builder = SURFACES[marker_id][2].func
-    z_scale = EXPLICIT_Z_SCALE if builder in (surface_mesh, build_custom_mesh) else 1.0
+    z_scale = EXPLICIT_Z_SCALE if builder is surface_mesh else 1.0
     return HALF * scale * np.array((1, 1, z_scale))
 
 
