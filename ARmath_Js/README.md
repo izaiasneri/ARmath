@@ -1,19 +1,40 @@
-# ARMath Web
+# ARMath JS
 
-Versão em HTML, CSS e JavaScript do ARMath 2.0, criado pelo Prof. Izaias Neri para o ensino de Cálculo III. A aplicação é estática e não exige Node.js nem Python para executar. O KaTeX está incluído no projeto para renderizar as equações sem conexão com a internet.
+<img src="static/armath-logo.png" alt="Logotipo do ARMath" width="340">
 
-## Abrir e usar
+O **ARMath JS** é a versão web do aplicativo de realidade aumentada criado pelo Prof. Izaias Neri para o ensino de **Cálculo III**. Ao reconhecer um cartão ArUco, a câmera exibe a superfície 3D sobre o vídeo. O painel abaixo do quadro mostra o ID do cartão, o nome da superfície e sua equação.
 
-- Abra `index.html` no navegador. **Marcadores** abre a página dos cartões em outra aba. Cada cartão pode ser impresso ou baixado em PNG.
-- Para uso com câmera, abra pelo endereço `localhost` de um servidor estático ou publique a pasta em uma hospedagem HTTPS. A disponibilidade da câmera ao abrir o arquivo diretamente varia conforme o navegador. Clique em **Ativar câmera**, conceda a permissão e mostre o marcador inteiro, com a margem branca visível.
-- Use **Selecionar câmera** para trocar de dispositivo, **Congelar imagem** para ajustar a superfície sobre um quadro fixo e **Salvar foto** para exportar um PNG. Em **Arquivo → Encerrar sessão**, a webcam é liberada.
-- Os controles permitem ajustar a escala e as rotações X, Y e Z, mostrar eixos, caixa e grade e explorar cortes XY, XZ e YZ. Em **Visualização → Planos**, você pode exibir também os três planos coordenados que passam pela origem.
+![ARMath JS em modo escuro com o cartão 9 reconhecido e a superfície da função personalizada sobre a câmera](docs/imagens/camera-ativa.png)
+
+## Comece a usar
+
+1. Sirva a pasta `ARmath_Js` com um servidor estático em `localhost` ou acesse a página hospedada em HTTPS.
+2. Abra `index.html` no navegador, clique em **Ativar câmera** e conceda a permissão de vídeo.
+3. Mostre um cartão inteiro à câmera, com a margem branca visível.
+4. Use os controles à esquerda para explorar a superfície. Abra **Marcadores** para obter os cartões e consultar exemplos.
+
+Consulte o [manual ilustrado em PDF](static/Manual_ARMathJS.pdf) para conhecer os menus, as janelas e cada controle. O cabeçalho permite alternar entre os modos claro e escuro.
+
+![Interface do ARMath JS em modo claro com a câmera desligada](docs/imagens/modo-claro.png)
+
+## Explore as superfícies
+
+| Recurso | O que faz |
+| --- | --- |
+| **Visualização** | Mostra eixos, caixa, grade de referência ou os três planos que passam pela origem. **Grade** e **Planos** são opções alternadas. |
+| **Transformação** | Ajusta a escala entre 1× e 3× e gira o gráfico em X, Y e Z. |
+| **Plano de corte** | Exibe um corte XY, XZ ou YZ. O controle de deslocamento altera a posição do plano e a interseção aparece em branco quando existe. |
+| **Congelar imagem** | Fixa o quadro para permitir ajustes e observação antes de retomar o vídeo. |
+| **Salvar foto** | Exporta o quadro exibido em PNG com a superfície sobreposta. |
+| **Selecionar câmera** | Permite escolher o dispositivo de vídeo. Para liberar a câmera, use **Arquivo → Encerrar sessão**. |
 
 ## Cartões ArUco
 
-Os PNGs em `static/marcadores` são os mesmos da versão Flask, do dicionário ArUco `DICT_4X4_50`.
+No [Acervo interativo](marcadores.html), busque pelo ID ou pelo nome da superfície. Cada cartão tem os botões **Imprimir** e **Baixar PNG**. A seção **Veja os exemplos** mostra a superfície associada a cada cartão.
 
-| Cartão | Superfície |
+![Acervo interativo do ARMath JS com o campo de busca e os cartões ArUco](docs/imagens/acervo-marcadores.png)
+
+| ID | Superfície |
 | --- | --- |
 | 0 | Paraboloide elíptico |
 | 1 | Paraboloide hiperbólico (sela) |
@@ -24,12 +45,20 @@ Os PNGs em `static/marcadores` são os mesmos da versão Flask, do dicionário A
 | 6 | Cone duplo |
 | 7 | Superfície gaussiana |
 | 8 | Ondulações concêntricas |
-| 9 | Função personalizada (inicialmente `x+y`) |
+| 9 | Função personalizada. A expressão inicial é `x+y`. |
 
-O cartão 9 aceita expressões em `x` e `y` no domínio [−5, 5] × [−5, 5]. Experimente `x^2-y^2`, `exp(x+y)` ou `sqrt(x^2+y^2)`. Também estão disponíveis `pi`, `e`, `sin`, `cos`, `tan`, `log` e `abs`. Use `*` para multiplicação e `^` ou `**` para potência.
+Os [cartões originais](static/marcadores) usam o dicionário ArUco `DICT_4X4_50`.
 
-## Implementação
+### Plote uma função com o cartão 9
 
-`static/vision.js` reconhece os cartões originais e projeta a geometria a partir dos seus cantos. `static/surfaces.js` calcula malhas, valida expressões e renderiza as superfícies e os cortes com Canvas. Os quadros da câmera são processados no próprio navegador.
+Mostre o cartão 9 à câmera, digite apenas o lado direito de `f(x,y) =` e clique em **Plotar**. Experimente `x^2-y^2`, `x**2+y**4` ou `sqrt(x^2+y^2)`.
 
-As equações dos cartões 0 a 9 são renderizadas em LaTeX pelo KaTeX 0.19.1, com saída HTML e MathML. A biblioteca, as fontes e a licença estão em `static/vendor/katex`.
+- Use `x`, `y`, `pi` e `e`. As operações aceitas incluem `+`, `-`, `*`, `/`, `^` e `**`.
+- Use ponto decimal, multiplicação explícita e parênteses quando necessário. As funções disponíveis são `sin`, `cos`, `tan`, `exp`, `sqrt`, `log` e `abs`.
+- A expressão deve ter até 120 caracteres e valores reais e finitos nos pontos amostrados da malha em [−5, 5] × [−5, 5]. Se for inválida, o aplicativo mostra um aviso com exemplos de sintaxe.
+
+## Como funciona
+
+A aplicação usa HTML, CSS e JavaScript. O [detector ArUco](static/vision.js) lê os cartões e estabiliza o rastreamento dos cantos. O [renderizador](static/surfaces.js) calcula as malhas, projeta os pontos e desenha as superfícies com Canvas 2D. Os quadros da câmera são processados no próprio navegador.
+
+O [KaTeX](static/vendor/katex) formata as equações com saída HTML e MathML. A biblioteca e as fontes acompanham o projeto para uso offline. A aplicação roda sem Node.js ou Python.
