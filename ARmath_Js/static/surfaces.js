@@ -155,8 +155,47 @@ const surfaces = (() => {
     return [cos(c)*x-sin(c)*y,sin(c)*x+cos(c)*y,z];
   }
 
+  function splitFace(vertices, axis, nearSide, order, emit) {
+    if (axis === 3) {
+      emit(vertices,order);
+      return;
+    }
+    const distances = vertices.map(({point}) => Math.abs(point[axis]) < 1e-9 ? 0 : point[axis]*nearSide[axis]);
+    const first = order*3;
+    if (distances.every((d) => d === 0)) {
+      emit(vertices,(first+1)*3**(2-axis));
+      return;
+    }
+    if (distances.every((d) => d <= 0)) {
+      splitFace(vertices,axis+1,nearSide,first,emit);
+      return;
+    }
+    if (distances.every((d) => d >= 0)) {
+      splitFace(vertices,axis+1,nearSide,first+2,emit);
+      return;
+    }
+
+    const far = [], near = [];
+    for (const [i, vertex] of vertices.entries()) {
+      const j = (i+1)%vertices.length;
+      const a = distances[i], b = distances[j];
+      if (a <= 0) far.push(vertex);
+      if (a >= 0) near.push(vertex);
+      if (a*b < 0) {
+        const next = vertices[j];
+        const point = vertex.point.map((value,k) => value+(next.point[k]-value)*a/(a-b));
+        point[axis] = 0;
+        const intersection = {point,edges:vertex.edges & next.edges};
+        far.push(intersection);
+        near.push(intersection);
+      }
+    }
+    splitFace(far,axis+1,nearSide,first,emit);
+    splitFace(near,axis+1,nearSide,first+2,emit);
+  }
+
   function draw(ctx, markers, options, customGeometry) {
-    const faces = [], guides = [], sections = [], labels = [];
+    const faces = [], markerLayers = [], guides = [], intersections = [], sections = [], labels = [];
     const angles = options.angles.map((angle) => angle*PI/180);
     let coordinate;
     for (const {id,corners} of markers) {
@@ -168,6 +207,20 @@ const surfaces = (() => {
         if (!projected.has(p)) projected.set(p,map(p));
         return projected.get(p);
       };
+      const markerFaces = options.planes ? [] : faces;
+      let nearSide;
+      if (options.planes) {
+        const origin = map([0,0,0]);
+        const axes = [[.1,0,0],[0,.1,0],[0,0,.1]].map(map);
+        // Screen-space winding tells which side of each plane faces the camera.
+        nearSide = axes.map((_,axis) => {
+          const u = axes[(axis+1)%3], v = axes[(axis+2)%3];
+          if (!origin || !u || !v) return 1;
+          const winding = (u[0]-origin[0])*(v[1]-origin[1])-(u[1]-origin[1])*(v[0]-origin[0]);
+          return winding < 0 ? 1 : -1;
+        });
+        markerLayers.push({faces:markerFaces,depth:origin?.[2] ?? Infinity});
+      }
       const axis = {xy:2,xz:1,yz:0}[options.plane];
       const slicing = axis !== undefined;
       const level = slicing ? Math.abs(options.offset)*mesh.bounds[axis][Number(options.offset >= 0)] : 0;
@@ -175,16 +228,28 @@ const surfaces = (() => {
         const number = (level/mesh.units[axis]).toLocaleString("pt-BR",{maximumSignificantDigits:4});
         coordinate = "xyz"[axis]+" = "+number;
       }
-      function face(points, color, stroke, lineWidth) {
-        if (points.every(Boolean)) {
+      function face(vertices, color, stroke, lineWidth) {
+        function enqueue(points, order, edges) {
+          if (!points.every(Boolean)) return;
           const depth = points.reduce((sum,p) => sum+p[2],0)/points.length;
-          faces.push({points,depth,color,stroke,lineWidth});
+          markerFaces.push({points,depth,color,stroke,lineWidth,order,edges});
         }
+        if (!nearSide) {
+          enqueue(vertices.map(cached),0);
+          return;
+        }
+        // Preserve only original mesh edges when a face is clipped at a plane.
+        const polygon = vertices.map((point,i) => ({
+          point, edges: (1 << i) | (1 << ((i+vertices.length-1)%vertices.length)),
+        }));
+        splitFace(polygon,0,nearSide,0,(piece,order) => {
+          const edges = stroke && piece.map(({edges},i) => edges & piece[(i+1)%piece.length].edges);
+          enqueue(piece.map(({point}) => cached(point)),order,edges);
+        });
       }
       for (const triangle of mesh.triangles) {
-        const points = triangle.map(cached);
         const height = triangle.reduce((sum,p) => sum+p[2],0)/3;
-        face(points, `hsl(216, 76%, ${27+Math.max(-1,Math.min(2,height))*7}%)`,
+        face(triangle, `hsl(216, 76%, ${27+Math.max(-1,Math.min(2,height))*7}%)`,
           "rgba(55,179,255,.75)", .55);
         if (!slicing) continue;
         const distances = triangle.map((p) => Math.abs(p[axis]-level) < 1e-9 ? 0 : p[axis]-level);
@@ -197,23 +262,50 @@ const surfaces = (() => {
         }
         if (hits.length === 2) sections.push(hits.map(map));
       }
+      function drawPlane(axis, level, uTicks, vTicks, color, stroke, width) {
+        const u = (axis+1)%3, v = (axis+2)%3;
+        const grid = uTicks.map((a) => vTicks.map((b) => {
+          const point = [0,0,0];
+          point[axis] = level;
+          point[u] = a;
+          point[v] = b;
+          return point;
+        }));
+        for (let i = 1; i < uTicks.length; i++) {
+          for (let j = 1; j < vTicks.length; j++) {
+            face([grid[i-1][j-1],grid[i][j-1],grid[i][j],grid[i-1][j]],color,stroke,width);
+          }
+        }
+      }
       if (slicing) {
         const tangents = [0,1,2].filter((i) => i !== axis);
         const extent = Math.max(1.2,...tangents.flatMap((i) => mesh.bounds[i].map(Math.abs)))*1.12;
-        const onPlane = (u,v) => {
-          const p = [0,0,0];
-          p[axis] = level;
-          p[tangents[0]] = u;
-          p[tangents[1]] = v;
-          return map(p);
-        };
         const ticks = sequence(17,-extent,extent);
-        const grid = ticks.map((u) => ticks.map((v) => onPlane(u,v)));
-        for (let i = 1; i < ticks.length; i++) {
-          for (let j = 1; j < ticks.length; j++) {
-            face([grid[i-1][j-1],grid[i][j-1],grid[i][j],grid[i-1][j]],
-              "rgba(223,37,52,.48)", "rgba(255,231,81,.92)", .65);
-          }
+        drawPlane(axis,level,ticks,ticks,"rgba(223,37,52,.48)","rgba(255,231,81,.92)",.65);
+      }
+
+      if (options.planes) {
+        const extents = mesh.bounds.map(([min,max]) => Math.max(Math.abs(min),Math.abs(max)));
+        const minimum = .35*Math.max(...extents);
+        const colors = ["rgba(48,211,127,.50)", "rgba(244,75,87,.50)", "rgba(255,217,58,.50)"];
+        const sharedExtents = [Infinity,Infinity,Infinity];
+        for (const [axis,color] of colors.entries()) {
+          const u = (axis+1)%3, v = (axis+2)%3;
+          const step = 1.15*Math.max(extents[u],extents[v],minimum)/7;
+          const ticks = (i) => {
+            const cells = Math.ceil(1.15*Math.max(extents[i],minimum)/step-1e-9);
+            return sequence(2*cells+1,-cells,cells).map((n) => n*step);
+          };
+          const uTicks = ticks(u), vTicks = ticks(v);
+          drawPlane(axis,0,uTicks,vTicks,color,"rgba(174,179,186,.76)",.65);
+          sharedExtents[u] = Math.min(sharedExtents[u],uTicks.at(-1));
+          sharedExtents[v] = Math.min(sharedExtents[v],vTicks.at(-1));
+        }
+        for (const [axis,extent] of sharedExtents.entries()) {
+          const start = [0,0,0], end = [0,0,0];
+          start[axis] = -extent;
+          end[axis] = extent;
+          intersections.push([map(start),map(end)]);
         }
       }
 
@@ -256,7 +348,7 @@ const surfaces = (() => {
             const point = lower.slice();
             point[u] = a;
             point[v] = b;
-            return map(point);
+            return point;
           }), colors[axis]);
           for (const [a,b] of corners) {
             const start = lower.slice(), end = upper.slice();
@@ -288,8 +380,11 @@ const surfaces = (() => {
       return true;
     }
     ctx.save();
-    const ordered = faces.sort((a,b) => b.depth-a.depth);
-    for (const {points,color,stroke,lineWidth} of ordered) {
+    const byDepth = (a,b) => b.depth-a.depth;
+    const ordered = options.planes
+      ? markerLayers.sort(byDepth).flatMap(({faces}) => faces.sort((a,b) => a.order-b.order || byDepth(a,b)))
+      : faces.sort(byDepth);
+    for (const {points,color,stroke,lineWidth,edges} of ordered) {
       path(points);
       ctx.closePath();
       ctx.fillStyle = color;
@@ -297,6 +392,15 @@ const surfaces = (() => {
       if (stroke) {
         ctx.lineWidth = lineWidth;
         ctx.strokeStyle = stroke;
+        if (edges && !edges.every(Boolean)) {
+          ctx.beginPath();
+          for (const [i, drawEdge] of edges.entries()) {
+            if (!drawEdge) continue;
+            const [x,y] = points[i], [endX,endY] = points[(i+1)%points.length];
+            ctx.moveTo(x,y);
+            ctx.lineTo(endX,endY);
+          }
+        }
         ctx.stroke();
       }
     }
@@ -308,8 +412,10 @@ const surfaces = (() => {
       ctx.stroke();
     }
     ctx.setLineDash([]);
-    ctx.lineWidth = 2.4;
     ctx.strokeStyle = "white";
+    ctx.lineWidth = 1.8;
+    for (const points of intersections) if (path(points)) ctx.stroke();
+    ctx.lineWidth = 2.4;
     for (const points of sections) if (path(points)) ctx.stroke();
     ctx.font = "bold 15px system-ui";
     for (const {point,text,color} of labels) {

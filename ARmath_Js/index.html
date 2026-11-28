@@ -53,7 +53,7 @@
       <div class="popover">
         <button data-dialog="quick-start" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-help"></use></svg>Como começar</button>
         <a class="marker-link" href="./marcadores.html" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#icon-marker"></use></svg>Marcadores ArUco</a>
-        <a href="./static/Manual_ARMath.pdf" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#icon-book"></use></svg>Manual do usuário</a>
+        <a href="./static/Manual_ARMathJS.pdf" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#icon-book"></use></svg>Manual do usuário</a>
         <a href="https://github.com/izaiasneri/ARmath/tree/main/ARMAth_2.0" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#icon-link"></use></svg>GitHub do projeto</a>
         <button data-dialog="about" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-info"></use></svg>Sobre o ARMath</button>
       </div>
@@ -113,6 +113,7 @@
         <label><input type="checkbox" id="axes"> Eixos</label>
         <label><input type="checkbox" id="box"> Caixa</label>
         <label><input type="checkbox" id="grid"> Grade</label>
+        <label><input type="checkbox" id="planes"> Planos</label>
       </div>
     </section>
     <section class="panel">
@@ -144,6 +145,32 @@
   </aside>
 </main>
 
+<dialog id="marker-required" aria-labelledby="marker-required-title" aria-describedby="marker-required-instructions">
+  <h2 id="marker-required-title">Cartão ArUco ID 9 necessário</h2>
+  <p id="marker-required-instructions">Coloque o cartão 9 em frente à câmera e clique em <strong>Plotar</strong> novamente.</p>
+  <img src="./static/marcadores/marcador_9.png" width="180" height="180" alt="Marcador ArUco do cartão 9, usado para a função personalizada">
+  <form method="dialog"><button class="primary" autofocus>Entendi</button></form>
+</dialog>
+<dialog id="function-error" aria-labelledby="function-error-title" aria-describedby="function-error-reason">
+  <h2 id="function-error-title">Expressão inválida</h2>
+  <p>Você digitou</p>
+  <pre id="invalid-expression"></pre>
+  <p id="function-error-reason" class="error"></p>
+  <p>Digite apenas o lado direito de <code>f(x,y) =</code>. Por exemplo, troque <code>f(x,y) = 2x + 0,5y</code> por <code>2*x + 0.5*y</code>.</p>
+  <table aria-label="Sintaxe aceita para a função personalizada">
+    <thead><tr><th scope="col">Aceito</th><th scope="col">Exemplo</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Variáveis <code>x</code> e <code>y</code></th><td><code>x + y</code></td></tr>
+      <tr><th scope="row">Operações <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code></th><td><code>2*x - y/2</code></td></tr>
+      <tr><th scope="row">Potências com <code>^</code> ou <code>**</code></th><td><code>x^2 + y**2</code></td></tr>
+      <tr><th scope="row">Parênteses</th><td><code>(x + y)^2</code></td></tr>
+      <tr><th scope="row">Constantes <code>pi</code> e <code>e</code></th><td><code>sin(pi*x)</code></td></tr>
+      <tr><th scope="row"><code>sin</code>, <code>cos</code>, <code>tan</code>, <code>exp</code>, <code>sqrt</code>, <code>log</code>, <code>abs</code></th><td><code>sqrt(x^2 + y^2)</code></td></tr>
+    </tbody>
+  </table>
+  <p>Use ponto decimal e <code>*</code> para multiplicar. A expressão deve ter até 120 caracteres e produzir valores reais e finitos nos pontos da malha em [−5, 5] × [−5, 5].</p>
+  <form method="dialog"><button class="primary" autofocus>Corrigir expressão</button></form>
+</dialog>
 <dialog id="quick-start">
   <form method="dialog"><button aria-label="Fechar"><svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></form>
   <h2><svg class="icon" aria-hidden="true"><use href="#icon-help"></use></svg>Como começar</h2>

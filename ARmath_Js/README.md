@@ -7,7 +7,7 @@ Versão em HTML, CSS e JavaScript do ARMath 2.0, criado pelo Prof. Izaias Neri p
 - Abra `index.html` no navegador. **Marcadores** abre a página dos cartões em outra aba. Cada cartão pode ser impresso ou baixado em PNG.
 - Para uso com câmera, abra pelo endereço `localhost` de um servidor estático ou publique a pasta em uma hospedagem HTTPS. A disponibilidade da câmera ao abrir o arquivo diretamente varia conforme o navegador. Clique em **Ativar câmera**, conceda a permissão e mostre o marcador inteiro, com a margem branca visível.
 - Use **Selecionar câmera** para trocar de dispositivo, **Congelar imagem** para ajustar a superfície sobre um quadro fixo e **Salvar foto** para exportar um PNG. Em **Arquivo → Encerrar sessão**, a webcam é liberada.
-- Os controles permitem ajustar a escala e as rotações X, Y e Z, mostrar eixos, caixa e grade e explorar cortes XY, XZ e YZ.
+- Os controles permitem ajustar a escala e as rotações X, Y e Z, mostrar eixos, caixa e grade e explorar cortes XY, XZ e YZ. Em **Visualização → Planos**, você pode exibir também os três planos coordenados que passam pela origem.
 
 ## Cartões ArUco
 

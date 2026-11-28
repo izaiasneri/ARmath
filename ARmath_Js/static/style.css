@@ -138,6 +138,18 @@ dialog { max-width: min(720px, 92vw); background: var(--panel); color: var(--ink
 dialog::backdrop { background: #080f24b0; }
 dialog form { float: right; margin-left: .7rem; }
 dialog p { margin: .5rem 0 1rem; }
+#function-error { width: min(570px, 92vw); }
+#marker-required { width: min(400px, 92vw); }
+#marker-required img { display: block; max-width: 100%; height: auto; margin: 0 auto 1rem; border-radius: .5rem; }
+#invalid-expression {
+  margin: -.55rem 0 .65rem; padding: .65rem .85rem;
+  background: var(--bg); border: 1px solid var(--line); border-radius: .5rem;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+#function-error table { width: 100%; border-collapse: collapse; }
+#function-error :is(th, td) { padding: .4rem; border-bottom: 1px solid var(--line); text-align: left; }
+#function-error tbody th { font-weight: 400; }
+:is(#function-error, #marker-required) form { float: none; display: flex; justify-content: flex-end; margin: 0; }
 #about { width: min(440px, 92vw); padding: 1.25rem 1.5rem; }
 #about .about-logo { display: block; width: min(100%, 320px); height: auto; margin: 0 auto 1.15rem; }
 #about h2 { color: var(--accent); font-size: 1.45rem; }

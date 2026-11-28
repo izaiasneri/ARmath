@@ -158,6 +158,7 @@ function renderFrame() {
       angles: ["x", "y", "z"].map((key) => Number($(key).value)),
       plane, offset: Number($("offset").value),
       axes: $("axes").checked, box: $("box").checked, grid: $("grid").checked,
+      planes: $("planes")?.checked,
     }, state.geometry);
     showPreview(true);
     showMarker(state.markers[0]?.id ?? null);
@@ -280,8 +281,15 @@ $("plane-toggle").addEventListener("change", () => {
   $("cut").textContent = $("plane-toggle").checked ? "Aponte para um marcador" : "Ative o plano";
   refresh();
 });
-for (const control of document.querySelectorAll("#axes, #box, #grid, [name=plane]")) {
+for (const control of document.querySelectorAll("#axes, #box, [name=plane]")) {
   control.addEventListener("change", refresh);
+}
+for (const control of document.querySelectorAll("#grid, #planes")) {
+  control.addEventListener("change", () => {
+    const other = $(control.id === "grid" ? "planes" : "grid");
+    if (control.checked && other) other.checked = false;
+    refresh();
+  });
 }
 for (const key of [...transform, "offset"]) {
   $(key).addEventListener("input", () => {
@@ -318,16 +326,35 @@ $("clear").addEventListener("click", () => {
   $("expression").focus();
   $("function-status").textContent = "Domínio [−5, 5] × [−5, 5]";
 });
+const functionError = $("function-error");
+functionError?.addEventListener("close", () => {
+  const input = $("expression");
+  input.value = "";
+  input.focus();
+});
+
 $("function-form").addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!state.markers.some(({id}) => id === 9)) {
+    const markerRequired = $("marker-required");
+    if (markerRequired && !markerRequired.open) markerRequired.showModal();
+    else if (!markerRequired) $("function-status").textContent = "Mostre o cartão 9 em frente à câmera.";
+    return;
+  }
+  const entered = $("expression").value;
   try {
-    const expression = $("expression").value.trim();
-    state.geometry = surfaces.custom(expression);
-    $("function-status").textContent = "Função atualizada para o marcador 9.";
-    refresh();
+    state.geometry = surfaces.custom(entered.trim());
   } catch (error) {
     $("function-status").textContent = error.message;
+    if (functionError) {
+      $("invalid-expression").textContent = entered || "(campo vazio)";
+      $("function-error-reason").textContent = error.message;
+      if (!functionError.open) functionError.showModal();
+    }
+    return;
   }
+  $("function-status").textContent = "Função atualizada para o marcador 9.";
+  refresh();
 });
 document.addEventListener("keydown", (event) => {
   if ((!event.ctrlKey && !event.metaKey) || event.altKey) return;
