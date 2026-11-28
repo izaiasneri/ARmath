@@ -27,6 +27,8 @@ function status(message, type) {
 
 function showMarker(marker) {
   state.marker = marker;
+  const contourButton = $("contour-open");
+  if (contourButton) contourButton.disabled = marker === null;
   const surface = marker === null ? null : surfaces.catalog[marker];
   $("marker-id").textContent = "ID do cartão · " + (marker ?? "—");
   $("surface-name").textContent = surface?.[0] ?? "Aponte a câmera para um marcador";
@@ -55,6 +57,7 @@ function showPreview(visible) {
   $("freeze").disabled = !visible || state.mode === "demo";
   $("demo-camera").hidden = !visible || state.mode !== "demo";
   const frozen = state.mode === "frozen";
+  $("freeze").dataset.active = String(frozen);
   setControl("freeze", frozen ? "Retomar vídeo" : "Congelar imagem", frozen ? "play" : "pause");
 }
 
@@ -207,16 +210,33 @@ async function demonstrate(url) {
   }
 }
 function savePhoto() {
-  if (preview.hidden) return;
-  preview.toBlob((photo) => {
+  if (!preview.hidden) saveCanvas(preview,"ARMath");
+}
+
+function saveCanvas(canvas, name) {
+  canvas.toBlob((photo) => {
     if (!photo) return;
     const url = URL.createObjectURL(photo);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "ARMath-" + new Date().toISOString().replace(/[:.]/g, "-") + ".png";
+    link.download = name + "-" + new Date().toISOString().replace(/[:.]/g, "-") + ".png";
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }, "image/png");
+}
+
+function showContours() {
+  if (state.marker === null) return;
+  const marker = state.marker;
+  const name = surfaces.catalog[marker][0];
+  const canvas = $("contour-plot");
+  const data = surfaces.contours(marker,state.geometry);
+  canvas.setAttribute("aria-label","Curvas de nível de " + name + " no plano XY");
+  $("contour-description").textContent = data.levels.length
+    ? "Vista XY da superfície. Cada curva indica uma altura z constante."
+    : "A superfície tem altura constante em toda a malha, sem curvas de nível isoladas.";
+  drawContours(canvas,data,marker,name);
+  $("contour-dialog").showModal();
 }
 
 async function selectCamera() {
@@ -264,7 +284,7 @@ $("start").addEventListener("click", startCamera);
 $("demo-camera").addEventListener("click", startCamera);
 $("menu-restart").addEventListener("click", startCamera);
 $("menu-camera").addEventListener("click", selectCamera);
-$("camera-select").addEventListener("click", selectCamera);
+$("camera-select")?.addEventListener("click", selectCamera);
 $("use-device").addEventListener("click", () => {
   state.device = $("device").value;
   $("devices").close();
@@ -272,6 +292,8 @@ $("use-device").addEventListener("click", () => {
 });
 $("freeze").addEventListener("click", toggleFreeze);
 $("save").addEventListener("click", savePhoto);
+$("contour-open")?.addEventListener("click", showContours);
+$("contour-save")?.addEventListener("click", () => saveCanvas($("contour-plot"),"ARMath-curvas-de-nivel"));
 $("menu-save").addEventListener("click", savePhoto);
 $("menu-axes").addEventListener("click", toggleAxes);
 $("menu-exit").addEventListener("click", endSession);
@@ -359,7 +381,8 @@ $("function-form").addEventListener("submit", (event) => {
 document.addEventListener("keydown", (event) => {
   if ((!event.ctrlKey && !event.metaKey) || event.altKey) return;
   const key = event.key.toLowerCase();
-  if (key === "s" && !preview.hidden) savePhoto();
+  if (key === "s" && $("contour-dialog")?.open) saveCanvas($("contour-plot"),"ARMath-curvas-de-nivel");
+  else if (key === "s" && !preview.hidden) savePhoto();
   else if (key === "e") toggleAxes();
   else if (key === "q") endSession();
   else return;

@@ -54,6 +54,45 @@ button:disabled, fieldset:disabled { opacity: .5; cursor: default; }
 .top, .section-header, nav, .toolbar, .form-actions, .toggles { display: flex; align-items: center; gap: .65rem; flex-wrap: wrap; }
 .top, .section-header { justify-content: space-between; }
 .toolbar { justify-content: center; }
+.armath-app .toolbar {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem;
+  width: min(100%, 700px); margin-inline: auto;
+}
+.armath-app .toolbar > :is(button, a) {
+  min-height: 44px; min-width: 0; justify-content: center;
+  padding: .48rem .55rem; line-height: 1.24; text-align: center;
+}
+.armath-app .toolbar > :enabled .icon, .armath-app .toolbar > a .icon { color: var(--accent); }
+.armath-app .toolbar > :is(button:enabled, a):hover {
+  background: var(--equation-panel); border-color: var(--accent);
+}
+.armath-app #freeze:enabled, .armath-app #demo-camera:enabled {
+  background: var(--equation-panel); border-color: var(--accent); font-weight: 650;
+}
+.armath-app #freeze[data-active="true"] {
+  background: var(--accent); color: var(--primary-ink);
+}
+.armath-app #freeze[data-active="true"] .icon { color: currentColor; }
+.armath-app .toolbar button:disabled { opacity: .62; color: var(--muted); }
+.armath-app #demo-camera { grid-column: 1 / -1; }
+.armath-app .toggles { gap: .35rem .45rem; }
+.armath-app .toggles label {
+  display: inline-flex; align-items: center; gap: .35rem;
+  min-height: 34px; padding: .22rem .48rem; border: 1px solid var(--line);
+  border-radius: .55rem; cursor: pointer;
+}
+.armath-app .toggles input { margin: 0; }
+.armath-app .toggles label:has(input:checked) {
+  border-color: var(--accent); color: var(--accent); background: var(--equation-panel);
+}
+.armath-app .toggles label:has(input:disabled) { cursor: default; }
+.armath-app .slider button { min-width: 32px; min-height: 28px; justify-content: center; }
+@media (max-width: 1100px) {
+  .armath-app .toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 340px) {
+  .armath-app .toolbar { grid-template-columns: minmax(0, 1fr); }
+}
 .top { border-bottom: 1px solid var(--line); padding: 1rem 0; }
 .brand { color: var(--ink); text-decoration: none; font-size: 1.65rem; font-weight: 800; letter-spacing: -.05em; }
 .brand span { color: var(--accent); }
@@ -139,6 +178,15 @@ dialog::backdrop { background: #080f24b0; }
 dialog form { float: right; margin-left: .7rem; }
 dialog p { margin: .5rem 0 1rem; }
 #function-error { width: min(570px, 92vw); }
+#contour-dialog { width: min(720px, 94vw); max-width: 94vw; }
+#contour-plot {
+  display: block; width: auto; max-width: 100%; height: auto; max-height: 62vh;
+  margin-inline: auto; border-radius: .55rem;
+}
+.contour-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .65rem; margin-top: .85rem; }
+.contour-actions form { float: none; margin: 0; }
+.contour-exit { background: #a71930; border-color: #a71930; color: #fff; }
+.contour-exit:hover:not(:disabled) { background: #831226; border-color: #831226; }
 #marker-required { width: min(400px, 92vw); }
 #marker-required img { display: block; max-width: 100%; height: auto; margin: 0 auto 1rem; border-radius: .5rem; }
 #invalid-expression {

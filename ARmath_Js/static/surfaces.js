@@ -155,23 +155,54 @@ const surfaces = (() => {
     return [cos(c)*x-sin(c)*y,sin(c)*x+cos(c)*y,z];
   }
 
-  function splitFace(vertices, axis, nearSide, order, emit) {
-    if (axis === 3) {
+  function intersectTriangle(triangle, axis, level) {
+    const distances = triangle.map((p) => Math.abs(p[axis]-level) < 1e-9 ? 0 : p[axis]-level);
+    if (distances.every((d) => d === 0)) return null;
+    const hits = [];
+    for (let i = 0; i < 3; i++) {
+      const j = (i+1)%3, d = distances[i], e = distances[j];
+      if (d === 0) hits.push(triangle[i]);
+      if (d*e < 0) hits.push(triangle[i].map((p,k) => p+(triangle[j][k]-p)*d/(d-e)));
+    }
+    return hits.length === 2 ? hits : null;
+  }
+
+  function contours(id, customGeometry) {
+    const mesh = id === 9 ? customGeometry : predefined[id];
+    const [low,high] = mesh.bounds[2];
+    const levels = high-low < 1e-9 ? [] : sequence(10,low,high).slice(1,-1).map((height) => ({
+      height: height/mesh.units[2],
+      segments: mesh.triangles.map((triangle) => intersectTriangle(triangle,2,height))
+        .filter(Boolean)
+        .map((segment) => segment.map(([x,y]) => [x/mesh.units[0],y/mesh.units[1]])),
+    }));
+    return {
+      levels,
+      bounds: mesh.bounds.slice(0,2).map((range,i) => range.map((value) => value/mesh.units[i])),
+    };
+  }
+
+  function splitFace(vertices, index, partitions, order, emit) {
+    if (index === partitions.length) {
       emit(vertices,order);
       return;
     }
-    const distances = vertices.map(({point}) => Math.abs(point[axis]) < 1e-9 ? 0 : point[axis]*nearSide[axis]);
+    const {axis,level,nearSide} = partitions[index];
+    const distances = vertices.map(({point}) => {
+      const distance = point[axis]-level;
+      return Math.abs(distance) < 1e-9 ? 0 : distance*nearSide;
+    });
     const first = order*3;
     if (distances.every((d) => d === 0)) {
-      emit(vertices,(first+1)*3**(2-axis));
+      emit(vertices,(first+1)*3**(partitions.length-index-1));
       return;
     }
     if (distances.every((d) => d <= 0)) {
-      splitFace(vertices,axis+1,nearSide,first,emit);
+      splitFace(vertices,index+1,partitions,first,emit);
       return;
     }
     if (distances.every((d) => d >= 0)) {
-      splitFace(vertices,axis+1,nearSide,first+2,emit);
+      splitFace(vertices,index+1,partitions,first+2,emit);
       return;
     }
 
@@ -184,14 +215,14 @@ const surfaces = (() => {
       if (a*b < 0) {
         const next = vertices[j];
         const point = vertex.point.map((value,k) => value+(next.point[k]-value)*a/(a-b));
-        point[axis] = 0;
+        point[axis] = level;
         const intersection = {point,edges:vertex.edges & next.edges};
         far.push(intersection);
         near.push(intersection);
       }
     }
-    splitFace(far,axis+1,nearSide,first,emit);
-    splitFace(near,axis+1,nearSide,first+2,emit);
+    splitFace(far,index+1,partitions,first,emit);
+    splitFace(near,index+1,partitions,first+2,emit);
   }
 
   function draw(ctx, markers, options, customGeometry) {
@@ -207,23 +238,33 @@ const surfaces = (() => {
         if (!projected.has(p)) projected.set(p,map(p));
         return projected.get(p);
       };
-      const markerFaces = options.planes ? [] : faces;
-      let nearSide;
-      if (options.planes) {
-        const origin = map([0,0,0]);
-        const axes = [[.1,0,0],[0,.1,0],[0,0,.1]].map(map);
-        // Screen-space winding tells which side of each plane faces the camera.
-        nearSide = axes.map((_,axis) => {
-          const u = axes[(axis+1)%3], v = axes[(axis+2)%3];
-          if (!origin || !u || !v) return 1;
-          const winding = (u[0]-origin[0])*(v[1]-origin[1])-(u[1]-origin[1])*(v[0]-origin[0]);
-          return winding < 0 ? 1 : -1;
-        });
-        markerLayers.push({faces:markerFaces,depth:origin?.[2] ?? Infinity});
-      }
       const axis = {xy:2,xz:1,yz:0}[options.plane];
       const slicing = axis !== undefined;
       const level = slicing ? Math.abs(options.offset)*mesh.bounds[axis][Number(options.offset >= 0)] : 0;
+      const partitions = slicing ? [{axis,level}] : [];
+      if (options.planes) {
+        for (const axis of [0,1,2]) {
+          if (!partitions.some((plane) => plane.axis === axis && Math.abs(plane.level) < 1e-9)) {
+            partitions.push({axis,level:0});
+          }
+        }
+      }
+      const markerFaces = partitions.length ? [] : faces;
+      if (partitions.length) {
+        for (const plane of partitions) {
+          const {axis,level} = plane;
+          const origin = [0,0,0];
+          origin[axis] = level;
+          const u = origin.slice(), v = origin.slice();
+          u[(axis+1)%3] += .1;
+          v[(axis+2)%3] += .1;
+          const [a,b,c] = [origin,u,v].map(map);
+          // Find the camera-facing side at this plane's actual offset.
+          const winding = a && b && c ? (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]) : 0;
+          plane.nearSide = winding < 0 ? 1 : -1;
+        }
+        markerLayers.push({faces:markerFaces,depth:map([0,0,0])?.[2] ?? Infinity});
+      }
       if (slicing && coordinate === undefined) {
         const number = (level/mesh.units[axis]).toLocaleString("pt-BR",{maximumSignificantDigits:4});
         coordinate = "xyz"[axis]+" = "+number;
@@ -234,7 +275,7 @@ const surfaces = (() => {
           const depth = points.reduce((sum,p) => sum+p[2],0)/points.length;
           markerFaces.push({points,depth,color,stroke,lineWidth,order,edges});
         }
-        if (!nearSide) {
+        if (!partitions.length) {
           enqueue(vertices.map(cached),0);
           return;
         }
@@ -242,7 +283,7 @@ const surfaces = (() => {
         const polygon = vertices.map((point,i) => ({
           point, edges: (1 << i) | (1 << ((i+vertices.length-1)%vertices.length)),
         }));
-        splitFace(polygon,0,nearSide,0,(piece,order) => {
+        splitFace(polygon,0,partitions,0,(piece,order) => {
           const edges = stroke && piece.map(({edges},i) => edges & piece[(i+1)%piece.length].edges);
           enqueue(piece.map(({point}) => cached(point)),order,edges);
         });
@@ -252,15 +293,8 @@ const surfaces = (() => {
         face(triangle, `hsl(216, 76%, ${27+Math.max(-1,Math.min(2,height))*7}%)`,
           "rgba(55,179,255,.75)", .55);
         if (!slicing) continue;
-        const distances = triangle.map((p) => Math.abs(p[axis]-level) < 1e-9 ? 0 : p[axis]-level);
-        if (distances.every((d) => d === 0)) continue;
-        const hits = [];
-        for (let i = 0; i < 3; i++) {
-          const j = (i+1)%3, d = distances[i], e = distances[j];
-          if (d === 0) hits.push(triangle[i]);
-          if (d*e < 0) hits.push(triangle[i].map((p,k) => p+(triangle[j][k]-p)*d/(d-e)));
-        }
-        if (hits.length === 2) sections.push(hits.map(map));
+        const segment = intersectTriangle(triangle,axis,level);
+        if (segment) sections.push(segment.map(map));
       }
       function drawPlane(axis, level, uTicks, vTicks, color, stroke, width) {
         const u = (axis+1)%3, v = (axis+2)%3;
@@ -381,7 +415,7 @@ const surfaces = (() => {
     }
     ctx.save();
     const byDepth = (a,b) => b.depth-a.depth;
-    const ordered = options.planes
+    const ordered = markerLayers.length
       ? markerLayers.sort(byDepth).flatMap(({faces}) => faces.sort((a,b) => a.order-b.order || byDepth(a,b)))
       : faces.sort(byDepth);
     for (const {points,color,stroke,lineWidth,edges} of ordered) {
@@ -416,7 +450,16 @@ const surfaces = (() => {
     ctx.lineWidth = 1.8;
     for (const points of intersections) if (path(points)) ctx.stroke();
     ctx.lineWidth = 2.4;
-    for (const points of sections) if (path(points)) ctx.stroke();
+    if (sections.length) {
+      ctx.beginPath();
+      ctx.lineCap = "round";
+      for (const [start,end] of sections) {
+        if (!start || !end) continue;
+        ctx.moveTo(start[0],start[1]);
+        ctx.lineTo(end[0],end[1]);
+      }
+      ctx.stroke();
+    }
     ctx.font = "bold 15px system-ui";
     for (const {point,text,color} of labels) {
       if (!point) continue;
@@ -429,5 +472,5 @@ const surfaces = (() => {
     return coordinate;
   }
 
-  return {catalog, custom, draw};
+  return {catalog, custom, draw, contours};
 })();

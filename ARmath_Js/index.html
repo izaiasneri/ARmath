@@ -11,6 +11,7 @@
   <script defer src="./static/surfaces.js"></script>
   <script defer src="./static/vendor/katex/katex.min.js"></script>
   <script defer src="./static/formula.js"></script>
+  <script defer src="./static/contours.js"></script>
   <script defer src="./static/app.js"></script>
 </head>
 <body class="armath-app">
@@ -81,11 +82,11 @@
       </div>
     </div>
     <p id="camera-error" class="error" role="alert" hidden></p>
-    <div class="toolbar">
+    <div class="toolbar" role="group" aria-label="Ações da câmera">
       <button id="freeze" type="button" disabled><svg class="icon" aria-hidden="true"><use href="#icon-pause"></use></svg><span class="control-label">Congelar imagem</span></button>
       <button id="save" type="button" disabled><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg>Salvar foto</button>
       <a class="marker-link" href="./marcadores.html" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#icon-marker"></use></svg>Marcadores</a>
-      <button type="button" id="camera-select"><svg class="icon" aria-hidden="true"><use href="#icon-camera"></use></svg>Selecionar câmera</button>
+      <button type="button" id="contour-open" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="3"/></svg>Curvas de nível</button>
       <button type="button" id="demo-camera" hidden><svg class="icon" aria-hidden="true"><use href="#icon-camera"></use></svg>Ativar câmera</button>
     </div>
     <div class="surface-card">
@@ -145,6 +146,15 @@
   </aside>
 </main>
 
+<dialog id="contour-dialog" aria-labelledby="contour-title" aria-describedby="contour-description">
+  <h2 id="contour-title">Curvas de nível</h2>
+  <p id="contour-description">Vista XY da superfície. Cada curva indica uma altura z constante.</p>
+  <canvas id="contour-plot" width="840" height="660" role="img" aria-label="Gráfico das curvas de nível no plano XY"></canvas>
+  <div class="contour-actions">
+    <button type="button" id="contour-save" class="primary"><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg>Salvar foto</button>
+    <form method="dialog"><button class="contour-exit" autofocus>Sair</button></form>
+  </div>
+</dialog>
 <dialog id="marker-required" aria-labelledby="marker-required-title" aria-describedby="marker-required-instructions">
   <h2 id="marker-required-title">Cartão ArUco ID 9 necessário</h2>
   <p id="marker-required-instructions">Coloque o cartão 9 em frente à câmera e clique em <strong>Plotar</strong> novamente.</p>
