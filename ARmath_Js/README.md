@@ -1,6 +1,8 @@
 # ARMath JS
 
-<img src="static/armath-logo.png" alt="Logotipo do ARMath" width="340">
+<p align="right">
+<img src="static/armath-logo.png" alt="Logotipo do ARMath" width="300">
+</p>
 
 O **ARMath JS** é a versão web do aplicativo de realidade aumentada criado pelo Prof. Izaias Neri para o ensino de **Cálculo III**. Ao reconhecer um cartão ArUco, a câmera exibe a superfície 3D sobre o vídeo. O painel abaixo do quadro mostra o ID do cartão, o nome da superfície e sua equação.
 
