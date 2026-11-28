@@ -1,3 +1,8 @@
+
+<p align="center">
+<img src="armath-logo.png" width="400">
+</p>
+
 # ARMath
 
 Aplicativo de realidade aumentada para o ensino de Cálculo III, criado pelo Prof. Izaias Neri.
